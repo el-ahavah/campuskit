@@ -1,0 +1,55 @@
+CampusKit required demonstration
+Fresh starting data: 18 total units, 18 available, no loans.
+
+1. F001 borrows 2 laptops
+Laptop available: 8
+
+2. F002 borrows 3 keyboards
+Keyboard available: 2
+
+3. F001 returns 1 laptop
+Laptop available: 9
+F001 laptops still on loan: 1
+
+4. F003 requests 4 headsets
+Rejected: Insufficient stock: Headset has 3 available; requested 4.
+Inventory, fellows, and loan records unchanged: PASS
+Headset available: 3
+
+5. F002 tries to return 4 keyboards
+Rejected: F002 has 3 units of Keyboard on loan; cannot return 4.
+Inventory, fellows, and loan records unchanged: PASS
+Keyboard available: 2
+F002 keyboards still on loan: 3
+
+6. Search for LAPtop
+
+Resource inventory
+ID    Name    Category     Total  Available
+----  ------  -----------  -----  ---------
+R001  Laptop  Electronics  10     9        
+
+7. Generate the report
+
+CampusKit stock report
+Total units: 18
+Available units: 14
+Units currently borrowed: 4
+Stock by resource:
+R001 | Laptop | Total: 10 | Available: 9 | Borrowed: 1 | AVAILABLE
+R002 | Keyboard | Total: 5 | Available: 2 | Borrowed: 3 | LOW STOCK
+R003 | Headset | Total: 3 | Available: 3 | Borrowed: 0 | AVAILABLE
+Low stock (fewer than 3 available):
+R002 | Keyboard | Available: 2
+Most units currently borrowed (all tied leaders):
+R002 | Keyboard | Borrowed: 3
+Consistency check: PASS
+
+Additional invalid-input test: F001 requests 'two' laptops
+Testing the borrowing function with a text quantity.
+Rejected: Quantity must be a positive whole number.
+Inventory, fellows, and loan records unchanged: PASS
+Laptop available: 9
+Borrowing records: 2
+
+All seven required steps and the additional invalid-input test: PASS

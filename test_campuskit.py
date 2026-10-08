@@ -582,5 +582,63 @@ class ReportTests(unittest.TestCase):
         self.assertTrue(result.stdout.rstrip().endswith("Goodbye from CampusKit."))
 
 
+class DemoTests(unittest.TestCase):
+    def test_demo_cli_runs_in_order_without_input(self):
+        result = subprocess.run(
+            [sys.executable, str(Path(campuskit.__file__)), "--demo"],
+            input="", text=True, capture_output=True, timeout=5,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stderr, "")
+        markers = ["1. F001", "2. F002", "3. F001", "4. F003", "5. F002",
+                   "6. Search", "7. Generate", "Additional invalid-input test"]
+        positions = [result.stdout.index(marker) for marker in markers]
+        self.assertEqual(positions, sorted(positions))
+        for text in ("Laptop available: 8", "Keyboard available: 2", "Laptop available: 9",
+                     "Headset available: 3", "Total units: 18", "Available units: 14",
+                     "Units currently borrowed: 4", "Quantity must be a positive whole number.",
+                     "All seven required steps and the additional invalid-input test: PASS"):
+            self.assertIn(text, result.stdout)
+        self.assertEqual(result.stdout.count("loan records unchanged: PASS"), 3)
+        self.assertNotIn("Main menu", result.stdout)
+
+    def test_demo_is_repeatable_and_isolated_from_existing_state(self):
+        resources, fellows, records = campuskit.create_initial_state()
+        campuskit.borrow_resource(resources, fellows, records, "F003", "R001", 7)
+        before = deepcopy((resources, fellows, records))
+        outputs = []
+        for _ in range(2):
+            output = io.StringIO()
+            with patch("builtins.input", side_effect=AssertionError("Demo must not prompt")), redirect_stdout(output):
+                campuskit.run_demo()
+            outputs.append(output.getvalue())
+        self.assertEqual(outputs[0], outputs[1])
+        self.assertEqual((resources, fellows, records), before)
+
+    def test_demo_fails_if_a_rejected_operation_mutates_state(self):
+        real_borrow = campuskit.borrow_resource
+
+        def broken_borrow(resources, fellows, records, fellow, resource, quantity):
+            if resource == "R003":
+                resources[2]["available"] -= 1
+                raise ValueError("Simulated broken rejection")
+            return real_borrow(resources, fellows, records, fellow, resource, quantity)
+
+        with patch.object(campuskit, "borrow_resource", side_effect=broken_borrow), redirect_stdout(io.StringIO()):
+            with self.assertRaisesRegex(RuntimeError, "rejection changed state"):
+                campuskit.run_demo()
+
+    def test_command_line_help_and_unknown_option(self):
+        for option, exit_code in (("--help", 0), ("--unknown", 2)):
+            with self.subTest(option=option):
+                result = subprocess.run(
+                    [sys.executable, str(Path(campuskit.__file__)), option],
+                    input="", text=True, capture_output=True, timeout=5,
+                )
+                self.assertEqual(result.returncode, exit_code)
+                self.assertNotIn("Main menu", result.stdout)
+                self.assertIn("--demo", result.stdout + result.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()

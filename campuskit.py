@@ -1,5 +1,8 @@
 """CampusKit: a local campus equipment manager, built one stage at a time."""
 
+import argparse
+from copy import deepcopy
+
 
 def create_initial_state():
     """Create independent inventory, fellows, and loan records for a session."""
@@ -474,5 +477,84 @@ def main():
     print("Goodbye from CampusKit.")
 
 
+def run_demo():
+    """Run and verify the required scenario using isolated, fresh state."""
+    resources, fellows, records = create_initial_state()
+
+    def verify(condition, message):
+        if not condition:
+            raise RuntimeError(f"Demonstration failed: {message}")
+
+    def reject_without_changes(action):
+        before = deepcopy((resources, fellows, records))
+        try:
+            action()
+        except ValueError as error:
+            print(f"Rejected: {error}")
+        else:
+            raise RuntimeError("Demonstration failed: invalid request was accepted.")
+        verify((resources, fellows, records) == before, "rejection changed state")
+        print("Inventory, fellows, and loan records unchanged: PASS")
+
+    print("CampusKit required demonstration")
+    print("Fresh starting data: 18 total units, 18 available, no loans.")
+    print("\n1. F001 borrows 2 laptops")
+    borrow_resource(resources, fellows, records, "F001", "R001", 2)
+    available = find_resource(resources, "R001")["available"]
+    print(f"Laptop available: {available}")
+    verify(available == 8, "step 1 stock")
+
+    print("\n2. F002 borrows 3 keyboards")
+    borrow_resource(resources, fellows, records, "F002", "R002", 3)
+    available = find_resource(resources, "R002")["available"]
+    print(f"Keyboard available: {available}")
+    verify(available == 2, "step 2 stock")
+
+    print("\n3. F001 returns 1 laptop")
+    receipt = return_resource(resources, fellows, records, "F001", "R001", 1)
+    print(f"Laptop available: {receipt['available']}")
+    print(f"F001 laptops still on loan: {receipt['outstanding']}")
+    verify(receipt["available"] == 9 and receipt["outstanding"] == 1, "step 3 return")
+
+    print("\n4. F003 requests 4 headsets")
+    reject_without_changes(lambda: borrow_resource(resources, fellows, records, "F003", "R003", 4))
+    print(f"Headset available: {find_resource(resources, 'R003')['available']}")
+
+    print("\n5. F002 tries to return 4 keyboards")
+    reject_without_changes(lambda: return_resource(resources, fellows, records, "F002", "R002", 4))
+    print(f"Keyboard available: {find_resource(resources, 'R002')['available']}")
+    print(f"F002 keyboards still on loan: {outstanding_quantity(records, 'F002', 'R002')}")
+
+    print("\n6. Search for LAPtop")
+    matches = search_resources(resources, "LAPtop")
+    list_resources(matches)
+    verify([r["id"] for r in matches] == ["R001"], "case-insensitive search")
+
+    print("\n7. Generate the report")
+    report = generate_report(resources, fellows, records)
+    show_report(resources, fellows, records)
+    verify((report["total"], report["available"], report["borrowed"]) == (18, 14, 4), "report totals")
+    verify([(r["id"], r["available"]) for r in report["low_stock"]] == [("R002", 2)], "low stock")
+    verify([(r["id"], r["borrowed"]) for r in report["most_borrowed"]] == [("R002", 3)], "most borrowed")
+
+    print("\nAdditional invalid-input test: F001 requests 'two' laptops")
+    print("Testing the borrowing function with a text quantity.")
+    reject_without_changes(lambda: borrow_resource(resources, fellows, records, "F001", "R001", "two"))
+    print(f"Laptop available: {find_resource(resources, 'R001')['available']}")
+    print(f"Borrowing records: {len(records)}")
+    print("\nAll seven required steps and the additional invalid-input test: PASS")
+
+
+def cli():
+    """Select the interactive application or the reproducible demonstration."""
+    parser = argparse.ArgumentParser(description="CampusKit resource management")
+    parser.add_argument("--demo", action="store_true", help="run the required demonstration on fresh data")
+    args = parser.parse_args()
+    if args.demo:
+        run_demo()
+    else:
+        main()
+
+
 if __name__ == "__main__":
-    main()
+    cli()
