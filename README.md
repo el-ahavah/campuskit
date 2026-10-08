@@ -8,9 +8,9 @@ Built with Python and its standard library only. Runs locally without frameworks
 
 ## Project status
 
-**Stages 1 and 2 complete: project plan and runnable CLI foundation.**
+**Stages 1–3 complete: project plan, CLI foundation, and resource inventory.**
 
-The application now starts with the required data, shows a repeating menu, displays a session overview and registered fellows, validates menu input, and exits cleanly. Reusable text and positive-integer input helpers are ready for later forms. Six foundation tests have passed, including an actual CLI subprocess run. The required seven-step borrowing demonstration has not been implemented or run yet. Each completed and verified stage has its own GitHub commit.
+The application starts with the required data, runs a repeating menu, displays the session overview and fellows, and supports adding and listing resources. Additions validate all fields before changing inventory, reject duplicate IDs regardless of case or outer spaces, and set available units equal to total units. All 14 foundation and inventory tests have passed, including actual CLI subprocess runs. The required seven-step borrowing demonstration has not been implemented or run yet. Each completed and verified stage has its own GitHub commit.
 
 Repository: [el-ahavah/campuskit](https://github.com/el-ahavah/campuskit)
 
@@ -115,17 +115,19 @@ From the project folder, start the program:
 python campuskit.py
 ```
 
-Choose `1` for the session overview, `2` for registered fellows, or `0` to exit. Blank or invalid menu choices show an explanation and prompt again. Ctrl+C or end-of-input closes the application cleanly. Each launch creates fresh data; saving is not implemented yet.
+Choose `1` for the session overview, `2` for registered fellows, `3` to list resources, `4` to add a resource, or `0` to exit. Blank or invalid menu choices show an explanation and prompt again. Ctrl+C or end-of-input closes the application cleanly. Each launch creates fresh data; saving is not implemented yet.
 
-Run the foundation checks:
+Run the foundation and inventory checks:
 
 ```bash
 python -m unittest -v
 ```
 
-Stage 2 verification: **6 tests passed** for exact starting data, independent session state, blank text, invalid quantities, menu navigation, and clean interruption handling. Quantity helpers are tested directly because borrowing forms arrive in later stages.
+Stage 3 verification: **14 tests passed**, covering the foundation plus valid additions, normalized IDs, duplicate rejection, blank/non-text fields, invalid totals, inventory display, empty inventory, interrupted additions, and the full add/list menu flow. Rejection tests compare state before and after the attempt.
 
-Inventory editing, borrowing, returns, searching, full reports, and `--demo` remain planned. The session overview only counts resource types, fellows, and borrowing records; it is not the final stock report.
+Try adding resource `r004`, name `Projector`, category `Electronics`, and total `4` through option `4`. Its stored ID becomes `R004`, with total and available units both set to 4. Option `3` lists all five inventory fields. Adding `R004` again is rejected. These are instructions to try locally, not the required seven-step demonstration output.
+
+Borrowing, returns, searching, full reports, and `--demo` remain planned. The session overview only counts resource types, fellows, and borrowing records; it is not the final stock report.
 
 ## Files and planned commands
 
@@ -133,7 +135,7 @@ Inventory editing, borrowing, returns, searching, full reports, and `--demo` rem
 | --- | --- |
 | `README.md` | Project overview, rules, build stages, and usage. |
 | `campuskit.py` | Application functions, menu, and demonstration mode in one submission-friendly file. |
-| `test_campuskit.py` | Automated tests using the standard-library `unittest` module. |
+| `test_campuskit.py` | Foundation and inventory tests using the standard-library `unittest` module. |
 | `docs/demo-output.txt` | Actual captured demonstration output, created after execution. |
 | `docs/test-output.txt` | Actual captured test output, created after execution. |
 | `docs/design.md` | Final explanation of implemented functions, data representation, and limitations. |
@@ -158,7 +160,7 @@ We will complete one stage at a time. For each stage: explain the change, implem
 | --- | --- | --- | --- |
 | 1. Project definition — complete | README, working name, requirements, and roadmap. | Every required feature and submission item is mapped. | `docs: define CampusKit project and build roadmap` |
 | 2. Application foundation — complete | Starting data, entry point, menu loop, input helpers, and `.gitignore`. | Menu repeats, invalid selections are handled, and exit works. | `feat: add CLI foundation and starting data` |
-| 3. Resource inventory | Add/list resources and validate resource fields. | Valid additions work; duplicate IDs and invalid totals leave inventory unchanged. | `feat: implement resource inventory management` |
+| 3. Resource inventory — complete | Add/list resources and validate resource fields. | Valid additions work; duplicate IDs and invalid totals leave inventory unchanged. | `feat: implement resource inventory management` |
 | 4. Borrowing | Fellow/resource validation, stock checks, records, and receipts. | Valid loans reduce stock; invalid IDs, quantities, and insufficient stock leave all state unchanged. | `feat: implement validated resource borrowing` |
 | 5. Returns | Outstanding loan calculation and partial/full returns. | Repeated borrowings and returns remain correct; excessive or invalid returns change nothing. | `feat: implement validated resource returns` |
 | 6. Search and category filter | Case-insensitive name search and category filtering. | `LAPtop` finds Laptop; category matching and no-match messages work. | `feat: add inventory search and category filters` |
