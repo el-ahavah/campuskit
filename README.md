@@ -8,9 +8,9 @@ Built with Python and its standard library only. Runs locally without frameworks
 
 ## Project status
 
-**Stage 1 complete: README and build plan. Implementation has not started.**
+**Stages 1 and 2 complete: project plan and runnable CLI foundation.**
 
-Features, file names, functions, and commands below describe the intended implementation. No demonstration or tests have been run yet. Each completed and verified stage will have its own GitHub commit.
+The application now starts with the required data, shows a repeating menu, displays a session overview and registered fellows, validates menu input, and exits cleanly. Reusable text and positive-integer input helpers are ready for later forms. Six foundation tests have passed, including an actual CLI subprocess run. The required seven-step borrowing demonstration has not been implemented or run yet. Each completed and verified stage has its own GitHub commit.
 
 Repository: [el-ahavah/campuskit](https://github.com/el-ahavah/campuskit)
 
@@ -107,7 +107,27 @@ If a fellow borrows the same resource more than once, returns will reduce the ol
 
 Business functions will receive state explicitly instead of depending on changing global variables. Input prompts and display formatting will be kept separate from validation and calculations where practical.
 
-## Planned files and commands
+## Running the current version
+
+From the project folder, start the program:
+
+```bash
+python campuskit.py
+```
+
+Choose `1` for the session overview, `2` for registered fellows, or `0` to exit. Blank or invalid menu choices show an explanation and prompt again. Ctrl+C or end-of-input closes the application cleanly. Each launch creates fresh data; saving is not implemented yet.
+
+Run the foundation checks:
+
+```bash
+python -m unittest -v
+```
+
+Stage 2 verification: **6 tests passed** for exact starting data, independent session state, blank text, invalid quantities, menu navigation, and clean interruption handling. Quantity helpers are tested directly because borrowing forms arrive in later stages.
+
+Inventory editing, borrowing, returns, searching, full reports, and `--demo` remain planned. The session overview only counts resource types, fellows, and borrowing records; it is not the final stock report.
+
+## Files and planned commands
 
 | File | Purpose |
 | --- | --- |
@@ -136,8 +156,8 @@ We will complete one stage at a time. For each stage: explain the change, implem
 
 | Stage | Deliverable | Completion check | Suggested commit |
 | --- | --- | --- | --- |
-| 1. Project definition | README, working name, requirements, and roadmap. | Every required feature and submission item is mapped. | `docs: define CampusKit project and build roadmap` |
-| 2. Application foundation | Starting data, entry point, menu loop, input helpers, and `.gitignore`. | Menu repeats, invalid selections are handled, and exit works. | `feat: add CLI foundation and starting data` |
+| 1. Project definition — complete | README, working name, requirements, and roadmap. | Every required feature and submission item is mapped. | `docs: define CampusKit project and build roadmap` |
+| 2. Application foundation — complete | Starting data, entry point, menu loop, input helpers, and `.gitignore`. | Menu repeats, invalid selections are handled, and exit works. | `feat: add CLI foundation and starting data` |
 | 3. Resource inventory | Add/list resources and validate resource fields. | Valid additions work; duplicate IDs and invalid totals leave inventory unchanged. | `feat: implement resource inventory management` |
 | 4. Borrowing | Fellow/resource validation, stock checks, records, and receipts. | Valid loans reduce stock; invalid IDs, quantities, and insufficient stock leave all state unchanged. | `feat: implement validated resource borrowing` |
 | 5. Returns | Outstanding loan calculation and partial/full returns. | Repeated borrowings and returns remain correct; excessive or invalid returns change nothing. | `feat: implement validated resource returns` |

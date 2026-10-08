@@ -1,0 +1,10 @@
+# Python-generated files
+__pycache__/
+*.py[cod]
+
+# Optional local saved inventory and loans
+/data/campuskit.json
+
+# Local virtual environments
+.venv/
+venv/
