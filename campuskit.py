@@ -1,7 +1,11 @@
 """CampusKit: a local, standard-library campus equipment lending desk."""
 
 import argparse
+import json
+import os
+import tempfile
 from copy import deepcopy
+from pathlib import Path
 
 
 def create_initial_state():
@@ -437,9 +441,82 @@ def show_fellows(fellows):
         print(f"{fellow_id}  {name}")
 
 
-def main():
+def validate_saved_state(payload):
+    """Validate a complete JSON document before allowing it into a session."""
+    if not isinstance(payload, dict) or type(payload.get("version")) is not int or payload["version"] != 1:
+        raise ValueError("Saved data must be an object with version 1.")
+    resources = payload.get("resources")
+    fellows = payload.get("fellows")
+    records = payload.get("borrow_records")
+    if not isinstance(resources, list) or not isinstance(fellows, dict) or not isinstance(records, list):
+        raise ValueError("Saved resources/borrow_records must be lists and fellows must be an object.")
+    for fellow_id, name in fellows.items():
+        if validate_text(fellow_id, "Fellow ID").upper() != fellow_id:
+            raise ValueError("Saved fellow IDs must be trimmed and uppercase.")
+        validate_text(name, "Fellow name")
+    for resource in resources:
+        if not isinstance(resource, dict) or not {"id", "name", "category", "total", "available"} <= resource.keys():
+            raise ValueError("Saved resource is missing required fields.")
+        if validate_text(resource["id"], "Resource ID").upper() != resource["id"]:
+            raise ValueError("Saved resource IDs must be trimmed and uppercase.")
+        validate_text(resource["name"], "Resource name")
+        validate_text(resource["category"], "Category")
+    for index, record in enumerate(records, start=1):
+        fields = {"loan_id", "fellow_id", "resource_id", "quantity_borrowed", "quantity_returned"}
+        if not isinstance(record, dict) or not fields <= record.keys():
+            raise ValueError("Saved loan is missing required fields.")
+        if record["loan_id"] != f"L{index:03d}":
+            raise ValueError("Saved loan IDs must be sequential and in original borrowing order.")
+        validate_text(record["fellow_id"], "Fellow ID")
+        validate_text(record["resource_id"], "Resource ID")
+    errors = check_consistency(resources, fellows, records)
+    if errors:
+        raise ValueError("Invalid saved state: " + " ".join(errors))
+    return resources, fellows, records
+
+
+def load_state(path):
+    """Load validated JSON; only a genuinely missing file starts fresh."""
+    try:
+        with Path(path).open(encoding="utf-8") as stream:
+            payload = json.load(stream)
+    except FileNotFoundError:
+        return create_initial_state()
+    return validate_saved_state(payload)
+
+
+def save_state(path, resources, fellows, borrow_records):
+    """Validate and atomically replace the save file using a sibling temporary file."""
+    payload = {"version": 1, "resources": resources, "fellows": fellows, "borrow_records": borrow_records}
+    validate_saved_state(payload)
+    path = Path(path)
+    # Never silently replace a corrupt existing save.
+    if path.exists():
+        load_state(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent,
+                                         prefix=".campuskit-", suffix=".tmp", delete=False) as stream:
+            temporary = Path(stream.name)
+            json.dump(payload, stream, indent=2, ensure_ascii=False)
+            stream.write("\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+    finally:
+        if temporary is not None and temporary.exists():
+            temporary.unlink()
+
+
+def main(data_path=None):
     """Start a session and keep the menu running until exit or interruption."""
-    resources, fellows, borrow_records = create_initial_state()
+    try:
+        resources, fellows, borrow_records = load_state(data_path) if data_path is not None else create_initial_state()
+    except (OSError, ValueError) as error:
+        print(f"Cannot load saved data: {error}")
+        print("The file was not changed. Repair it or use --no-save for a fresh temporary session.")
+        return 1
     print("Welcome to CampusKit")
     print("Know what is available, who has it, and what comes back.")
 
@@ -449,6 +526,7 @@ def main():
             choice = read_menu_choice()
             if choice == "0":
                 break
+            before = deepcopy((resources, fellows, borrow_records)) if data_path is not None else None
             if choice == "1":
                 show_overview(resources, fellows, borrow_records)
             elif choice == "2":
@@ -469,6 +547,15 @@ def main():
                 show_report(resources, fellows, borrow_records)
             elif choice == "10":
                 prompt_fellow_loans(resources, fellows, borrow_records)
+            if data_path is not None and (resources, fellows, borrow_records) != before:
+                try:
+                    save_state(data_path, resources, fellows, borrow_records)
+                except (OSError, ValueError) as error:
+                    resources, fellows, borrow_records = before
+                    print(f"Save failed: {error}")
+                    print("The preceding change was rolled back; it was NOT saved. Please retry.")
+                else:
+                    print("Changes saved.")
     except (EOFError, KeyboardInterrupt):
         print("\nInput ended. Closing CampusKit.")
     print("Goodbye from CampusKit.")
@@ -547,12 +634,16 @@ def cli():
     """Select the interactive application or the reproducible demonstration."""
     parser = argparse.ArgumentParser(description="CampusKit resource management")
     parser.add_argument("--demo", action="store_true", help="run the required demonstration on fresh data")
+    storage = parser.add_mutually_exclusive_group()
+    storage.add_argument("--data", type=Path, default=Path(__file__).resolve().parent / "data" / "campuskit.json",
+                         help="JSON save file (default: data/campuskit.json beside the program)")
+    storage.add_argument("--no-save", action="store_true", help="start fresh without reading or writing saved data")
     args = parser.parse_args()
     if args.demo:
         run_demo()
         return 0
     else:
-        return main()
+        return main(None if args.no_save else args.data)
 
 
 if __name__ == "__main__":

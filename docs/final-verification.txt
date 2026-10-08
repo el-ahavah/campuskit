@@ -1,14 +1,11 @@
-CampusKit final verification — in-memory version
+CampusKit verification after restoring JSON with user edits
 Python: 3.12.14
 Platform: Linux
-Method: clean temporary directory containing application and tests.
-
-campuskit.py SHA-256: 86318135b14943addc3a2c58ac87695a2f80b8a5f7a7f27291a317c69182dfe8
-test_campuskit.py SHA-256: 880b51d68253158775c3ac60e9e9fddc4fa236789207598f031c6c4418c9a36e
-Command: python3 campuskit.py --demo | exit: 0
-Command: python3 -m unittest -v | exit: 0
+campuskit.py SHA-256: a1bcb789a94ef331ac14d74160994dacf8793d3a9196ea948141e85efafca6db
+test_campuskit.py SHA-256: c44b947ff927404fd8308f3c4fdf04e57dca2726958247dcaab4b9f4616fac7f
+python3 campuskit.py --demo | exit: 0
+python3 -m unittest -v | exit: 0
 ----------------------------------------------------------------------
-Ran 48 tests in 0.315s
+Ran 55 tests in 0.495s
 
 OK
-JSON persistence removed; restart resets state and existing files remain untouched (covered by tests).

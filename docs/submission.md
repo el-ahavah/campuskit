@@ -14,7 +14,7 @@ If submitting a link to a particular version, open the final commit on GitHub an
 
 Paste the actual contents of [demo-output.txt](demo-output.txt). It includes Steps 1–7 in order and the additional invalid-input test in which F001 requests `two` laptops. The transcript prints actual results and verifies unchanged state after rejected requests.
 
-Include [test-output.txt](test-output.txt) as test evidence. It records 48 passing tests. JSON persistence is deferred, so do not include old persistence evidence or claim the optional bonus.
+Include [test-output.txt](test-output.txt) as test evidence. It records 55 passing tests. For the JSON bonus, include [persistence-output.txt](persistence-output.txt), which records borrowing, restarting, returning, and restarting again in separate processes.
 
 These files contain real captured output. The README's acceptance table is a specification, not a substitute for the transcript. The text-quantity case in the demo tests the borrowing function directly; the test suite separately exercises invalid text through interactive prompts.
 
@@ -24,7 +24,7 @@ Use [design.md](design.md), which names and explains more than four implemented 
 
 For a short text field, the following explanation covers the requested points:
 
-CampusKit stores inventory as a list of dictionaries containing each resource's ID, name, category, total units, and available units. Fellows are stored in a dictionary mapping IDs to names. Loans are a list of dictionaries containing the loan ID, fellow ID, resource ID, quantity borrowed, and quantity returned. The difference between borrowed and returned quantities is the outstanding loan. `add_resource()` validates and adds unique resources. `borrow_resource()` checks IDs, quantity, and stock before recording a loan and reducing availability. `return_resource()` checks what the fellow owes, settles the oldest matching loans, and restores stock. `search_resources()` finds names without case sensitivity, while `generate_report()` calculates current stock totals, low-stock items, and all tied most-borrowed resources. One limitation is that all data is held in memory and lost when the program closes; each new launch starts with the original inventory and no loans.
+CampusKit stores inventory as a list of dictionaries containing each resource's ID, name, category, total units, and available units. Fellows are stored in a dictionary mapping IDs to names. Loans are a list of dictionaries containing the loan ID, fellow ID, resource ID, quantity borrowed, and quantity returned. The difference between borrowed and returned quantities is the outstanding loan. `add_resource()` validates and adds unique resources. `borrow_resource()` checks IDs, quantity, and stock before recording a loan and reducing availability. `return_resource()` checks what the fellow owes, settles the oldest matching loans, and restores stock. `search_resources()` finds names without case sensitivity, while `generate_report()` calculates current stock totals, low-stock items, and all tied most-borrowed resources. One limitation is that the JSON save supports a single operator at a time; simultaneous instances could overwrite each other's changes.
 
 ## Run it yourself before submitting
 
@@ -43,5 +43,5 @@ Final checks for the fellow:
 - [ ] Paste the complete source into A1, or provide the source link if accepted.
 - [ ] Paste the demonstration transcript and test evidence into A2.
 - [ ] Paste the design explanation into A3.
-- [ ] Use only the current evidence; the optional JSON bonus is deferred.
+- [ ] Include JSON persistence evidence for the optional bonus.
 - [ ] Confirm the assessor can view any submitted links, then submit the form.

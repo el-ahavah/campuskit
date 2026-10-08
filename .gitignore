@@ -2,7 +2,7 @@
 __pycache__/
 *.py[cod]
 
-# Keep any old local save private; persistence is currently deferred
+# Optional local saved inventory and loans
 /data/campuskit.json
 
 # Local virtual environments

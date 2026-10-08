@@ -15,7 +15,6 @@ test_quantity_helper_rejects_invalid_values_before_accepting (test_campuskit.Fou
 test_sessions_do_not_share_mutable_data (test_campuskit.FoundationTests.test_sessions_do_not_share_mutable_data) ... ok
 test_starting_data_matches_brief (test_campuskit.FoundationTests.test_starting_data_matches_brief) ... ok
 test_text_helper_retries_blank_and_trims_spaces (test_campuskit.FoundationTests.test_text_helper_retries_blank_and_trims_spaces) ... ok
-test_restart_resets_loans_and_leaves_existing_files_untouched (test_campuskit.InMemorySessionTests.test_restart_resets_loans_and_leaves_existing_files_untouched) ... ok
 test_add_normalizes_fields_and_sets_available_to_total (test_campuskit.InventoryTests.test_add_normalizes_fields_and_sets_available_to_total) ... ok
 test_cli_add_retry_duplicate_and_list_flow (test_campuskit.InventoryTests.test_cli_add_retry_duplicate_and_list_flow) ... ok
 test_duplicate_ids_leave_all_state_unchanged (test_campuskit.InventoryTests.test_duplicate_ids_leave_all_state_unchanged) ... ok
@@ -24,6 +23,14 @@ test_find_resource_normalizes_id_and_handles_missing_id (test_campuskit.Inventor
 test_interrupted_add_does_not_partially_change_inventory (test_campuskit.InventoryTests.test_interrupted_add_does_not_partially_change_inventory) ... ok
 test_invalid_fields_leave_all_state_unchanged (test_campuskit.InventoryTests.test_invalid_fields_leave_all_state_unchanged) ... ok
 test_listing_contains_all_fields_and_preserves_inventory (test_campuskit.InventoryTests.test_listing_contains_all_fields_and_preserves_inventory) ... ok
+test_cli_restart_restores_loans_and_accepts_returns (test_campuskit.PersistenceTests.test_cli_restart_restores_loans_and_accepts_returns) ... ok
+test_corrupt_startup_fails_but_demo_ignores_file (test_campuskit.PersistenceTests.test_corrupt_startup_fails_but_demo_ignores_file) ... ok
+test_failed_atomic_replace_preserves_previous_file_and_cleans_temp (test_campuskit.PersistenceTests.test_failed_atomic_replace_preserves_previous_file_and_cleans_temp) ... ok
+test_invalid_documents_rejected_without_overwriting (test_campuskit.PersistenceTests.test_invalid_documents_rejected_without_overwriting) ... ok
+test_missing_save_starts_fresh_without_creating_file (test_campuskit.PersistenceTests.test_missing_save_starts_fresh_without_creating_file) ... ok
+test_rejected_and_read_only_actions_do_not_rewrite_save (test_campuskit.PersistenceTests.test_rejected_and_read_only_actions_do_not_rewrite_save) ... ok
+test_round_trip_inventory_partial_and_full_loans (test_campuskit.PersistenceTests.test_round_trip_inventory_partial_and_full_loans) ... ok
+test_save_failure_rolls_back_session_change (test_campuskit.PersistenceTests.test_save_failure_rolls_back_session_change) ... ok
 test_all_tied_leaders_and_current_not_historical_borrowing (test_campuskit.ReportTests.test_all_tied_leaders_and_current_not_historical_borrowing) ... ok
 test_cli_complete_required_scenario_and_fellow_views (test_campuskit.ReportTests.test_cli_complete_required_scenario_and_fellow_views) ... ok
 test_consistency_mismatch_is_reported_without_repair (test_campuskit.ReportTests.test_consistency_mismatch_is_reported_without_repair) ... ok
@@ -48,6 +55,6 @@ test_new_resources_and_zero_stock_remain_searchable (test_campuskit.SearchTests.
 test_search_after_steps_one_to_five_shows_current_stock_without_changes (test_campuskit.SearchTests.test_search_after_steps_one_to_five_shows_current_stock_without_changes) ... ok
 
 ----------------------------------------------------------------------
-Ran 48 tests in 0.315s
+Ran 55 tests in 0.495s
 
 OK
