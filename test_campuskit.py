@@ -1,6 +1,8 @@
 """CampusKit regression checks; run with python -m unittest -v."""
 
 import io
+import json
+import tempfile
 import subprocess
 import sys
 import unittest
@@ -46,7 +48,7 @@ class FoundationTests(unittest.TestCase):
 
     def test_cli_recovers_from_invalid_input_and_repeats_menu(self):
         result = subprocess.run(
-            [sys.executable, str(Path(campuskit.__file__))],
+            [sys.executable, str(Path(campuskit.__file__)), "--no-save"],
             input="\nwrong\n99\n1\n2\n0\n", text=True,
             capture_output=True, timeout=5,
         )
@@ -141,7 +143,7 @@ class InventoryTests(unittest.TestCase):
 
     def test_cli_add_retry_duplicate_and_list_flow(self):
         result = subprocess.run(
-            [sys.executable, str(Path(campuskit.__file__))],
+            [sys.executable, str(Path(campuskit.__file__)), "--no-save"],
             input="4\n r004 \n\nProjector\n \nElectronics\ntwo\n2.5\n0\n-1\n4\n4\nr004\n3\n1\n0\n",
             text=True, capture_output=True, timeout=5,
         )
@@ -230,7 +232,7 @@ class BorrowingTests(unittest.TestCase):
 
     def test_cli_borrow_receipts_rejections_and_stock(self):
         result = subprocess.run(
-            [sys.executable, str(Path(campuskit.__file__))],
+            [sys.executable, str(Path(campuskit.__file__)), "--no-save"],
             input="5\n f001 \n r001 \ntwo\n0\n-1\n1.5\n2\n5\nF002\nR002\n3\n5\nF003\nR003\n4\n5\nF999\nR001\n1\n5\nF001\nR999\n1\n3\n1\n0\n",
             text=True, capture_output=True, timeout=5,
         )
@@ -363,7 +365,7 @@ class ReturnTests(unittest.TestCase):
 
     def test_cli_return_receipts_rejections_and_inventory(self):
         result = subprocess.run(
-            [sys.executable, str(Path(campuskit.__file__))],
+            [sys.executable, str(Path(campuskit.__file__)), "--no-save"],
             input="5\nF001\nR001\n2\n5\nF002\nR002\n3\n6\n f001 \n r001 \n\ntwo\n0\n-1\n1.5\n1\n5\nF003\nR003\n4\n6\nF002\nR002\n4\n3\n1\n0\n",
             text=True, capture_output=True, timeout=5,
         )
@@ -439,7 +441,7 @@ class SearchTests(unittest.TestCase):
 
     def test_cli_search_filter_blank_retry_and_no_matches(self):
         result = subprocess.run(
-            [sys.executable, str(Path(campuskit.__file__))],
+            [sys.executable, str(Path(campuskit.__file__)), "--no-save"],
             input="7\n\n LAPtop \n8\n \n aCCESSories \n7\nMissing\n8\nAccess\n0\n",
             text=True, capture_output=True, timeout=5,
         )
@@ -568,7 +570,7 @@ class ReportTests(unittest.TestCase):
 
     def test_cli_complete_required_scenario_and_fellow_views(self):
         result = subprocess.run(
-            [sys.executable, str(Path(campuskit.__file__))],
+            [sys.executable, str(Path(campuskit.__file__)), "--no-save"],
             input="5\nF001\nR001\n2\n5\nF002\nR002\n3\n6\nF001\nR001\n1\n5\nF003\nR003\n4\n6\nF002\nR002\n4\n7\nLAPtop\n9\n10\n f001 \n10\nF003\n10\nF999\n0\n",
             text=True, capture_output=True, timeout=5,
         )
@@ -638,6 +640,115 @@ class DemoTests(unittest.TestCase):
                 self.assertEqual(result.returncode, exit_code)
                 self.assertNotIn("Main menu", result.stdout)
                 self.assertIn("--demo", result.stdout + result.stderr)
+
+
+class PersistenceTests(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.path = Path(self.directory.name) / "data" / "campuskit.json"
+        self.resources, self.fellows, self.records = campuskit.create_initial_state()
+
+    def save(self):
+        campuskit.save_state(self.path, self.resources, self.fellows, self.records)
+
+    def run_cli(self, inputs="", extra=()):
+        return subprocess.run([sys.executable, str(Path(campuskit.__file__)), "--data", str(self.path), *extra],
+                              input=inputs, text=True, capture_output=True, timeout=5)
+
+    def test_round_trip_inventory_partial_and_full_loans(self):
+        campuskit.add_resource(self.resources, "R004", "Projector", "Electronics", 2)
+        campuskit.borrow_resource(self.resources, self.fellows, self.records, "F001", "R001", 3)
+        campuskit.borrow_resource(self.resources, self.fellows, self.records, "F002", "R004", 1)
+        campuskit.return_resource(self.resources, self.fellows, self.records, "F001", "R001", 1)
+        campuskit.return_resource(self.resources, self.fellows, self.records, "F002", "R004", 1)
+        self.save()
+        loaded = campuskit.load_state(self.path)
+        self.assertEqual(loaded, (self.resources, self.fellows, self.records))
+        loan = campuskit.borrow_resource(*loaded, "F003", "R003", 1)
+        self.assertEqual(loan["loan_id"], "L003")
+        self.assertEqual(len(self.records), 2)
+
+    def test_missing_save_starts_fresh_without_creating_file(self):
+        self.assertEqual(campuskit.load_state(self.path), campuskit.create_initial_state())
+        self.assertFalse(self.path.exists())
+
+    def test_invalid_documents_rejected_without_overwriting(self):
+        self.save()
+        original = json.loads(self.path.read_text())
+        bad_states = [[], {}, {**original, "version": 2}, {**original, "resources": {}},
+                      {**original, "resources": [{}]}, {**original, "fellows": {" f001 ": "Ada"}}]
+        for field, value in (("available", 9), ("total", True), ("id", []), ("name", "")):
+            state = deepcopy(original)
+            state["resources"][0][field] = value
+            bad_states.append(state)
+        state = deepcopy(original)
+        state["borrow_records"] = [{"loan_id": "L999", "fellow_id": "F001", "resource_id": "R001",
+                                   "quantity_borrowed": 1, "quantity_returned": 0}]
+        bad_states.append(state)
+        documents = ["{broken JSON", ""] + [json.dumps(state) for state in bad_states]
+        for document in documents:
+            with self.subTest(document=document[:80]):
+                self.path.write_text(document)
+                with self.assertRaises(ValueError):
+                    campuskit.load_state(self.path)
+                with self.assertRaises(ValueError):
+                    self.save()
+                self.assertEqual(self.path.read_text(), document)
+
+    def test_failed_atomic_replace_preserves_previous_file_and_cleans_temp(self):
+        self.save()
+        before = self.path.read_bytes()
+        campuskit.borrow_resource(self.resources, self.fellows, self.records, "F001", "R001", 2)
+        with patch.object(campuskit.os, "replace", side_effect=OSError("disk failure")):
+            with self.assertRaises(OSError):
+                self.save()
+        self.assertEqual(self.path.read_bytes(), before)
+        self.assertEqual(list(self.path.parent.glob(".campuskit-*.tmp")), [])
+
+    def test_save_failure_rolls_back_session_change(self):
+        self.save()
+        before = self.path.read_bytes()
+        output = io.StringIO()
+        with patch.object(campuskit, "save_state", side_effect=OSError("disk full")), \
+                patch("builtins.input", side_effect=["5", "F001", "R001", "2", "9", "0"]), redirect_stdout(output):
+            self.assertEqual(campuskit.main(self.path), 0)
+        self.assertIn("rolled back", output.getvalue())
+        self.assertIn("Available units: 18", output.getvalue())
+        self.assertIn("Units currently borrowed: 0", output.getvalue())
+        self.assertEqual(self.path.read_bytes(), before)
+
+    def test_cli_restart_restores_loans_and_accepts_returns(self):
+        first = self.run_cli("5\nF001\nR001\n2\n0\n")
+        self.assertEqual(first.returncode, 0, first.stderr)
+        self.assertIn("Changes saved.", first.stdout)
+        second = self.run_cli("10\nF001\n6\nF001\nR001\n1\n0\n")
+        self.assertEqual(second.returncode, 0, second.stderr)
+        self.assertIn("Outstanding: 2", second.stdout)
+        third = self.run_cli("9\n0\n")
+        self.assertEqual(third.returncode, 0, third.stderr)
+        self.assertIn("Available units: 17", third.stdout)
+        self.assertIn("Units currently borrowed: 1", third.stdout)
+
+    def test_corrupt_startup_fails_but_demo_ignores_file(self):
+        self.path.parent.mkdir()
+        self.path.write_text("broken")
+        result = self.run_cli("0\n")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("Cannot load saved data", result.stdout)
+        demo = self.run_cli(extra=("--demo",))
+        self.assertEqual(demo.returncode, 0, demo.stderr)
+        self.assertIn("Available units: 14", demo.stdout)
+        self.assertEqual(self.path.read_text(), "broken")
+
+    def test_rejected_and_read_only_actions_do_not_rewrite_save(self):
+        self.save()
+        before = self.path.read_bytes()
+        with patch.object(campuskit, "save_state") as save, \
+                patch("builtins.input", side_effect=["5", "F003", "R003", "4", "9", "0"]), redirect_stdout(io.StringIO()):
+            campuskit.main(self.path)
+        save.assert_not_called()
+        self.assertEqual(self.path.read_bytes(), before)
 
 
 if __name__ == "__main__":
