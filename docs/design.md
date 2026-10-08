@@ -15,9 +15,8 @@ CampusKit separates the operations that change data from the functions that ask 
 | `generate_report()` | Calculates total, available, and outstanding borrowed units, low-stock resources, and every tied most-borrowed leader. |
 | `check_consistency()` | Detects stock/loan mismatches, invalid quantities, duplicate IDs, and unknown fellow or resource references. |
 | `get_fellow_loans()` | Groups one fellow's outstanding units by resource and omits fully returned loans. |
-| `load_state()` / `save_state()` | Reload validated JSON and save changes through an atomic file replacement. |
 | `run_demo()` | Runs the seven required steps and an invalid-input test on fresh state, checking the actual results. |
-| `main()` | Runs the menu until exit, handles input interruptions, and coordinates persistence. |
+| `main()` | Runs the menu until exit, handles input interruptions, and holds the current session’s state. |
 
 ## Inventory and fellow loans
 
@@ -35,14 +34,12 @@ The business functions validate before changing data. Rejected requests do not a
 
 For each resource, available units plus outstanding loan units must equal total units. Reports check this relationship before displaying balances. Low stock means fewer than three available units, including zero. Most borrowed means units still on loan, not cumulative historical borrowing. All tied leaders are included; if nothing is borrowed, the program says so.
 
-## Persistence
+## Session lifetime
 
-The JSON file contains a version number, resources, fellows, and borrowing records. Loading validates the structure and consistency before using it. Successful additions, borrowings, and returns are automatically saved. A temporary file is written and flushed before replacing the old save. If saving raises a handled error, the latest in-memory change is rolled back. A broken existing file is not silently reset or overwritten.
-
-The `--demo` command always uses fresh isolated data. The `--no-save` option starts a temporary interactive session without reading or writing saved state.
+All data is stored in Python lists and dictionaries in memory. Normal startup and `--demo` each create fresh starting state. No JSON file is loaded or saved. Persistence is an optional bonus deferred until the author has learned JSON.
 
 ## Design limitations
 
-The main limitation is that CampusKit supports one operator and one process per save file. JSON storage has no concurrent-writer locking, so two running instances could overwrite each other's changes. It is appropriate for this local assignment, but a multi-user system would need coordinated storage.
+The main limitation is that inventory and loans are lost when the program closes. A new launch starts with the original data, so this version cannot track loans across sessions. Separate running instances do not share data.
 
-Fellow IDs identify registered fellows; they do not authenticate the person using the program. Equipment is tracked in quantities, not by individual serial numbers. Returns update aggregate quantities in borrowing records rather than creating a separate dated return-event history. Receipts are printed before the persistence attempt; a save failure is therefore followed by an explicit rollback message.
+Fellow IDs identify registered fellows; they do not authenticate the person using the program. Equipment is tracked in quantities, not by individual serial numbers. Returns update aggregate quantities in borrowing records rather than creating a separate dated return-event history.
