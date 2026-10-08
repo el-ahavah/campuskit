@@ -16,8 +16,8 @@ functions = []
 for node in ast.walk(ast.parse(source.read_text())):
     if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
         functions.append(node)
-assert len(functions) == 9
-print("PASS: exactly 9 application functions, with no hidden nested functions or lambdas")
+assert len(functions) == 12
+print("PASS: exactly 12 application functions, with no hidden nested functions or lambdas")
 
 resources, fellows, records = app.create_initial_state()
 assert [r['available'] for r in resources] == [10, 5, 3]
@@ -73,20 +73,30 @@ print("PASS: required transactions and rejected requests preserve all state")
 
 assert app.search_resources(resources, ' LAPtop ') == [resources[0]]
 assert app.search_resources(resources, 'lap') == [resources[0]]
-assert app.search_resources(resources, 'ACCESSORIES', True) == resources[1:]
-assert app.search_resources(resources, 'Access', True) == []
+assert app.filter_by_category(resources, 'ACCESSORIES') == resources[1:]
+assert app.filter_by_category(resources, 'Access') == []
 assert app.search_resources([], 'Laptop') == []
-for query in ('', ' ', None):
-    try:
-        app.search_resources(resources, query)
-    except ValueError:
-        pass
-    else:
-        raise AssertionError('Invalid search accepted')
-with redirect_stdout(io.StringIO()):
+for operation in (app.search_resources, app.filter_by_category):
+    for query in ('', ' ', None):
+        try:
+            operation(resources, query)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError('Invalid search accepted')
+output = io.StringIO()
+with redirect_stdout(output):
     report = app.generate_report(resources)
+assert output.getvalue() == ""
 assert (report['total'], report['available'], report['borrowed']) == (18, 14, 4)
 assert report['low_stock'] == [resources[1]] and report['most_borrowed'] == [resources[1]]
+assert (resources, fellows, records) == before
+output = io.StringIO()
+with redirect_stdout(output):
+    app.show_report(report)
+for line in ("Total units: 18", "Available units: 14", "Units currently borrowed: 4",
+             "Keyboard (R002): 2 available", "Keyboard (R002): 3 borrowed"):
+    assert line in output.getvalue()
 assert (resources, fellows, records) == before
 print("PASS: search, category filter, required report and read-only state preservation")
 
@@ -96,6 +106,11 @@ for rid in ('R001', 'R002', 'R003'):
 with redirect_stdout(io.StringIO()):
     report = app.generate_report(resources)
 assert report['most_borrowed'] == resources
+output = io.StringIO()
+with redirect_stdout(output):
+    app.show_report(report)
+for resource in resources:
+    assert f"{resource['name']} ({resource['id']}): 3 borrowed" in output.getvalue()
 assert [r['available'] for r in report['low_stock']] == [2, 0]
 app.return_resource(resources, fellows, records, 'F001', 'R001', 3)
 with redirect_stdout(io.StringIO()):
@@ -107,6 +122,10 @@ with redirect_stdout(io.StringIO()):
     empty = app.generate_report([])
 assert (empty['total'], empty['available'], empty['borrowed']) == (0, 0, 0)
 assert empty['most_borrowed'] == [] and empty['low_stock'] == []
+output = io.StringIO()
+with redirect_stdout(output):
+    app.show_report(empty)
+assert "None." in output.getvalue() and "No units currently borrowed." in output.getvalue()
 print("PASS: all tied leaders, zero stock, threshold of 3, current rather than historical loans, empty reports")
 
 resources, fellows, records = app.create_initial_state()
@@ -146,13 +165,32 @@ else:
 assert (resources, fellows, records) == before
 print("PASS: borrowing exact stock and rejecting further borrowing")
 
+original_stdin = sys.stdin
+try:
+    for text, number, expected in [("  Laptop  ", False, "Laptop"), (" 2 ", True, 2)]:
+        sys.stdin = io.StringIO(text + "\n")
+        with redirect_stdout(io.StringIO()):
+            assert app.read_input("Test: ", number) == expected
+    for text, number in [(" ", False), ("", True), ("two", True), ("1.5", True), ("0", True), ("-2", True)]:
+        sys.stdin = io.StringIO(text + "\n")
+        try:
+            with redirect_stdout(io.StringIO()):
+                app.read_input("Test: ", number)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("Invalid input accepted")
+finally:
+    sys.stdin = original_stdin
+print("PASS: input helper trims text and rejects blanks and invalid positive integers")
+
 with tempfile.TemporaryDirectory() as folder:
     root = Path(folder)
     program = root / 'campuskit.py'
     program.write_bytes(source.read_bytes())
     (root / 'old-save.json').write_text('Leave this old file alone')
     before = {p.name: p.read_bytes() for p in root.iterdir()}
-    inputs = 'wrong\n2\nR004\nProjector\nElectronics\n2\n3\nF001\nR001\ntwo\n3\nF001\nR001\n2\n4\nF001\nR001\n1\n5\nLAPtop\n6\nAccessories\n7\n8\n0\n'
+    inputs = '\nwrong\n2\nR004\nProjector\nElectronics\n2\n3\nF001\nR001\ntwo\n3\nF001\nR001\n2\n4\nF001\nR001\n1\n5\nLAPtop\n6\nAccessories\n7\n8\n0\n'
     result = subprocess.run([sys.executable, str(program)], input=inputs, text=True, capture_output=True, timeout=5)
     assert result.returncode == 0 and result.stderr == ''
     for text in ('Invalid option', 'Invalid input', 'Resource added.', 'Available now: 8',

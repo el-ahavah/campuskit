@@ -2,7 +2,7 @@
 
 **Know what is available, who has it, and what comes back.**
 
-A local Python command-line equipment lending program for Learn2Earn. The simplified version has **9 functions**, uses the standard library only, and meets the required inventory, borrowing, returns, search/filter, and reporting features.
+A local Python command-line equipment lending program for Learn2Earn. The simplified version has **12 functions**, uses the standard library only, and meets the required inventory, borrowing, returns, search/filter, and reporting features.
 
 JSON persistence is omitted for now. Each launch starts fresh; changes last only for the current session. The optional JSON bonus is not included in this version. Earlier versions remain in Git history.
 
@@ -34,7 +34,7 @@ Use `python3` or Windows `py` if needed. No package installation is required. Ru
 
 Menu numbers have changed from the earlier version. Invalid input displays an error and returns to the menu. Ctrl+C or end-of-input closes the program. No files are read or written by the application.
 
-## The 9 functions
+## The 12 functions
 
 | Function | Purpose |
 | --- | --- |
@@ -43,8 +43,11 @@ Menu numbers have changed from the earlier version. Invalid input displays an er
 | `list_resources()` | Print all five resource fields. |
 | `borrow_resource()` | Validate IDs, quantity, and stock; record each successful loan. |
 | `return_resource()` | Check quantities owed, update oldest matching loans, and restore stock. |
-| `search_resources()` | Search names, or filter categories when `category=True`. |
-| `generate_report()` | Calculate and print totals, low stock, and all tied leaders. |
+| `search_resources()` | Search names, ignoring case. |
+| `filter_by_category()` | Match a category, ignoring case. |
+| `generate_report()` | Calculate totals, low stock, and all tied leaders. |
+| `show_report()` | Print the calculated report. |
+| `read_input()` | Read non-empty text or a positive integer. |
 | `main()` | Run the menu and handle input errors. |
 | `run_demo()` | Run the required scenario plus one invalid-input case on fresh data. |
 

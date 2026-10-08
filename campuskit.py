@@ -105,24 +105,32 @@ def return_resource(resources, fellows, records, fellow_id, resource_id, quantit
     return resource["available"]
 
 
-def search_resources(resources, query, category=False):
-    """Search part of a name, or match a complete category."""
+def search_resources(resources, query):
+    """Find names containing the search term, ignoring case."""
     if not isinstance(query, str) or not query.strip():
         raise ValueError("Enter a non-empty search term.")
     query = query.strip().lower()
     matches = []
     for resource in resources:
-        if category:
-            matched = resource["category"].lower() == query
-        else:
-            matched = query in resource["name"].lower()
-        if matched:
+        if query in resource["name"].lower():
+            matches.append(resource)
+    return matches
+
+
+def filter_by_category(resources, category):
+    """Match a complete category, ignoring case."""
+    if not isinstance(category, str) or not category.strip():
+        raise ValueError("Enter a non-empty category.")
+    category = category.strip().lower()
+    matches = []
+    for resource in resources:
+        if resource["category"].lower() == category:
             matches.append(resource)
     return matches
 
 
 def generate_report(resources):
-    """Calculate and print totals, low stock, and every tied leader."""
+    """Return totals, low stock, and every tied leader without printing."""
     total = 0
     available = 0
     low_stock = []
@@ -139,21 +147,41 @@ def generate_report(resources):
             leaders = [resource]
         elif borrowed == highest and borrowed > 0:
             leaders.append(resource)
-    print(f"Total units: {total}")
-    print(f"Available units: {available}")
-    print(f"Units currently borrowed: {total - available}")
-    print("Low stock (fewer than 3 available):")
-    if not low_stock:
-        print("None.")
-    for resource in low_stock:
-        print(f"{resource['name']} ({resource['id']}): {resource['available']} available")
-    print("Most units currently borrowed (all tied leaders):")
-    if not leaders:
-        print("No units currently borrowed.")
-    for resource in leaders:
-        print(f"{resource['name']} ({resource['id']}): {highest} borrowed")
     return {"total": total, "available": available, "borrowed": total - available,
             "low_stock": low_stock, "most_borrowed": leaders}
+
+
+def show_report(report):
+    """Print a report that has already been calculated."""
+    print(f"Total units: {report['total']}")
+    print(f"Available units: {report['available']}")
+    print(f"Units currently borrowed: {report['borrowed']}")
+    print("Low stock (fewer than 3 available):")
+    if not report["low_stock"]:
+        print("None.")
+    for resource in report["low_stock"]:
+        print(f"{resource['name']} ({resource['id']}): {resource['available']} available")
+    print("Most units currently borrowed (all tied leaders):")
+    if not report["most_borrowed"]:
+        print("No units currently borrowed.")
+    for resource in report["most_borrowed"]:
+        borrowed = resource["total"] - resource["available"]
+        print(f"{resource['name']} ({resource['id']}): {borrowed} borrowed")
+
+
+def read_input(prompt, number=False):
+    """Read non-empty text, or a positive whole number."""
+    value = input(prompt).strip()
+    if not value:
+        raise ValueError("Input cannot be blank.")
+    if number:
+        try:
+            value = int(value)
+        except ValueError:
+            raise ValueError("Enter a positive whole number, such as 2.") from None
+        if value <= 0:
+            raise ValueError("Enter a positive whole number, such as 2.")
+    return value
 
 
 def main():
@@ -165,34 +193,37 @@ def main():
         while True:
             print("\n1. List resources\n2. Add resource\n3. Borrow\n4. Return")
             print("5. Search name\n6. Filter category\n7. Report\n8. List fellows\n0. Exit")
-            choice = input("Choose 0-8: ").strip()
-            if choice == "0":
-                break
             try:
+                choice = read_input("Choose 0-8: ")
+                if choice == "0":
+                    break
                 if choice == "1":
                     list_resources(resources)
                 elif choice == "2":
-                    resource_id = input("Resource ID: ")
-                    name = input("Name: ")
-                    category = input("Category: ")
-                    total = int(input("Total units (positive integer): "))
+                    resource_id = read_input("Resource ID: ")
+                    name = read_input("Name: ")
+                    category = read_input("Category: ")
+                    total = read_input("Total units (positive integer): ", number=True)
                     add_resource(resources, resource_id, name, category, total)
                     print("Resource added.")
                 elif choice in ("3", "4"):
-                    fellow_id = input("Fellow ID: ")
-                    resource_id = input("Resource ID: ")
-                    quantity = int(input("Quantity (positive integer): "))
+                    fellow_id = read_input("Fellow ID: ")
+                    resource_id = read_input("Resource ID: ")
+                    quantity = read_input("Quantity (positive integer): ", number=True)
                     if choice == "3":
                         available = borrow_resource(resources, fellows, records, fellow_id, resource_id, quantity)
                         print(f"Borrowing recorded. Available now: {available}")
                     else:
                         available = return_resource(resources, fellows, records, fellow_id, resource_id, quantity)
                         print(f"Return recorded. Available now: {available}")
-                elif choice in ("5", "6"):
-                    query = input("Search term: ")
-                    list_resources(search_resources(resources, query, choice == "6"))
+                elif choice == "5":
+                    query = read_input("Search term: ")
+                    list_resources(search_resources(resources, query))
+                elif choice == "6":
+                    category = read_input("Category: ")
+                    list_resources(filter_by_category(resources, category))
                 elif choice == "7":
-                    generate_report(resources)
+                    show_report(generate_report(resources))
                 elif choice == "8":
                     for fellow_id, name in fellows.items():
                         print(f"{fellow_id}: {name}")
@@ -245,6 +276,7 @@ def run_demo():
         raise RuntimeError("Search demonstration failed.")
     print("\n7. Generate the report")
     report = generate_report(resources)
+    show_report(report)
     if (report["total"], report["available"], report["borrowed"]) != (18, 14, 4):
         raise RuntimeError("Report totals are incorrect.")
     if report["low_stock"] != [resources[1]] or report["most_borrowed"] != [resources[1]]:

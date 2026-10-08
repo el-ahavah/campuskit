@@ -1,6 +1,6 @@
 # A3 — Project design explanation
 
-CampusKit has nine functions. `add_resource()` adds resources and rejects duplicate IDs. `borrow_resource()` checks IDs, quantity, and stock before recording a loan and reducing availability. `return_resource()` checks what the fellow owes, updates the oldest matching loans, and restores stock. `search_resources()` searches names or filters categories. `generate_report()` calculates totals, low stock, and every tied most-borrowed resource.
+CampusKit has twelve functions. `add_resource()` adds resources and rejects duplicate IDs. `borrow_resource()` checks IDs, quantity, and stock before recording a loan and reducing availability. `return_resource()` checks what the fellow owes, updates the oldest matching loans, and restores stock. `search_resources()` searches names, and `filter_by_category()` matches categories. `generate_report()` calculates totals, low stock, and every tied most-borrowed resource; `show_report()` prints them. `read_input()` checks typed input.
 
 Inventory is a list of dictionaries containing each resource's ID, name, category, total units, and available units. Fellows are a dictionary mapping IDs to names. Borrowing records are a list of dictionaries containing a loan ID, fellow ID, resource ID, quantity borrowed, and quantity returned. Outstanding units equal borrowed minus returned quantities. All validation happens before changing a transaction's records or stock.
 

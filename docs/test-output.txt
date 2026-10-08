@@ -1,4 +1,4 @@
-PASS: exactly 9 application functions, with no hidden nested functions or lambdas
+PASS: exactly 12 application functions, with no hidden nested functions or lambdas
 PASS: exact starting quantities and independent sessions
 PASS: additions, normalization, duplicates, blank fields and invalid totals
 PASS: required transactions and rejected requests preserve all state
@@ -6,6 +6,7 @@ PASS: search, category filter, required report and read-only state preservation
 PASS: all tied leaders, zero stock, threshold of 3, current rather than historical loans, empty reports
 PASS: partial/full returns across oldest loans, other fellows unaffected, history retained
 PASS: borrowing exact stock and rejecting further borrowing
+PASS: input helper trims text and rejects blanks and invalid positive integers
 PASS: interactive flow, invalid text, EOF, fresh restart and no file changes
 PASS: standalone demonstration
 All checks passed.

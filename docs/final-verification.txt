@@ -1,10 +1,10 @@
-CampusKit simplified version verification
+CampusKit final verification
 Python: 3.12.14
-Platform: Linux
-Method: clean directory with application and test script.
-campuskit.py SHA-256: bd50b7e23ae621eabc29226bc45e7091eb8b866d99965a9c0e4a1701818155a3
-test_campuskit.py SHA-256: 12d1274704564e060d3c696d9bfda4d6198d6d5262fc18d4cca63edae794d738
-Function definitions across application and test script: 9
-Command: python3 campuskit.py --demo | exit: 0
-Command: python3 test_campuskit.py | exit: 0
-All test groups passed; JSON omitted; no external packages required.
+Application functions: 12
+Clean-directory demonstration: PASS
+Clean-directory test script: PASS
+JSON persistence: omitted
+
+SHA-256 of verified source files:
+campuskit.py: 0062793e026cb2a3682053f578d7ec06b4768bc9d67a00c66c3ef2320df6a5e4
+test_campuskit.py: 49fc3e2dda9999c24af323c020327a183271bdc279c143d222acca74ed621c98

@@ -8,7 +8,7 @@ Use the current simplified version and its matching evidence.
 | A2 — Demonstration and test evidence | [demo-output.txt](demo-output.txt), followed by [test-output.txt](test-output.txt) |
 | A3 — Design explanation | [design.md](design.md) |
 
-The application has nine functions. The separate test script adds no functions and is run with `python test_campuskit.py`. The demonstration can be run with `python campuskit.py --demo`; it includes all seven required steps followed by a text-quantity rejection.
+The application has twelve functions. The separate test script adds no functions and is run with `python test_campuskit.py`. The demonstration can be run with `python campuskit.py --demo`; it includes all seven required steps followed by a text-quantity rejection.
 
 JSON is omitted, so the optional persistence bonus is not part of this version. Do not use the old persistence transcript or earlier test counts. If updating a submission, replace A1, A2, and A3 together so they describe the same code.
 
