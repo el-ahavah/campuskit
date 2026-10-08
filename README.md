@@ -8,9 +8,11 @@ Built with Python and its standard library only. Runs locally without frameworks
 
 ## Project status
 
-**Stages 1–9 complete: core features, demonstration evidence, and JSON persistence.**
+**All 10 stages complete. Source code, actual run evidence, design explanation, and submission guide are ready.**
 
-The application starts with the required data, runs a repeating menu, displays the session overview and fellows, and supports adding and listing resources. Additions validate all fields before changing inventory, reject duplicate IDs regardless of case or outer spaces, and set available units equal to total units. Borrowing validates fellow/resource IDs, positive integer quantities, and available stock before recording a loan and reducing availability. Each successful borrowing prints a receipt. Returns validate the fellow’s outstanding quantity before updating the oldest matching loans and restoring stock. Full borrowing records are retained after return. Name search supports case-insensitive partial matches; category filtering uses case-insensitive exact matches. Both display current inventory fields without changing state. Stock reports now show totals, availability, outstanding borrowed units, low-stock resources, and every tied most-borrowed leader. A fellow loan view groups outstanding units by resource. Both views check inventory/loan consistency before displaying balances. All 55 tests have passed. JSON persistence now reloads validated inventory, fellows, and loan records and saves successful changes automatically. The standalone `--demo` command has been executed successfully, and its actual output plus verbose test output are committed under `docs/`. The demonstration runs the seven required steps in order, followed by a text-quantity rejection, verifying results and unchanged state after rejected requests. Each completed and verified stage has its own GitHub commit.
+The required inventory, borrowing, returns, search/filter, and reports are implemented, along with JSON persistence, receipts, consistency checks, and fellow loan views. All **55 tests passed** in a clean directory containing only the application and test files. The required demonstration also passed, including an extra invalid-input test.
+
+Start with [the submission guide](docs/submission.md) for A1/A2/A3. The project is prepared; the assessment form has not been submitted automatically.
 
 Repository: [el-ahavah/campuskit](https://github.com/el-ahavah/campuskit)
 
@@ -24,7 +26,7 @@ Repository: [el-ahavah/campuskit](https://github.com/el-ahavah/campuskit)
 
 ## Required features
 
-| Area | Planned behaviour | Requirement marks |
+| Area | Implemented behaviour | Requirement marks |
 | --- | --- | --- |
 | Inventory | Add and list resources with unique ID, name, category, total units, and available units; reject duplicate IDs. | 10 |
 | Borrowing | Validate fellow ID, resource ID, and positive integer quantity; check stock; record every successful borrowing and reduce availability. | 15 |
@@ -37,7 +39,7 @@ The supplied brief lists these requirements as 70 marks and separately lists A1/
 
 ## What makes CampusKit distinctive
 
-These small enhancements will support the assignment without changing its scope:
+These small enhancements support the assignment without changing its scope:
 
 - **Fellow loan view:** see each fellow's outstanding resources and quantities.
 - **Readable receipts:** confirm the fellow, resource, quantity, and remaining stock after a successful transaction.
@@ -107,7 +109,7 @@ If a fellow borrows the same resource more than once, returns reduce the oldest 
 | `run_demo()` | Execute the required scenario on fresh data and print actual results. |
 | `main()` | Run the menu until the user exits. |
 
-Business functions will receive state explicitly instead of depending on changing global variables. Input prompts and display formatting will be kept separate from validation and calculations where practical.
+Business functions receive state explicitly instead of depending on changing global variables. Input prompts and display formatting are kept separate from validation and calculations where practical.
 
 ## Running the current version
 
@@ -125,7 +127,7 @@ Run all checks:
 python -m unittest -v
 ```
 
-Stage 9 verification: **55 tests passed**, covering the foundation plus valid additions, normalized IDs, duplicate rejection, blank/non-text fields, invalid totals, inventory display, empty inventory, interrupted additions, and the full add/list menu flow. Borrowing checks also cover the first two required borrowing steps, unknown IDs, invalid quantities, insufficient stock, exact-stock borrowing, repeated loans, newly added resources, interrupted entry, and CLI receipts. Return tests cover partial/full returns, oldest-loan allocation across repeated borrowings, loan history retention, other fellows/resources remaining unchanged, duplicate returns, excessive returns, invalid inputs, interrupted entry, and CLI receipts. Search/filter checks cover case and outer-space handling, partial names, exact categories, multiple matches, new resources, zero stock, empty inventory, no matches, invalid queries, and current availability after loans and returns. Report tests cover the full required scenario, ties, current versus historical borrowing, zero stock, the low-stock threshold, empty/no-loan reports, fellow-specific balances, and deliberate inconsistencies. Demo tests cover the non-interactive command, ordered steps, repeatability, isolation from existing state, help/invalid arguments, and detection of a rejection that wrongly mutates state. Rejection and read-only-operation tests compare state before and after the attempt.
+Final verification: **55 tests passed**, covering the foundation plus valid additions, normalized IDs, duplicate rejection, blank/non-text fields, invalid totals, inventory display, empty inventory, interrupted additions, and the full add/list menu flow. Borrowing checks also cover the first two required borrowing steps, unknown IDs, invalid quantities, insufficient stock, exact-stock borrowing, repeated loans, newly added resources, interrupted entry, and CLI receipts. Return tests cover partial/full returns, oldest-loan allocation across repeated borrowings, loan history retention, other fellows/resources remaining unchanged, duplicate returns, excessive returns, invalid inputs, interrupted entry, and CLI receipts. Search/filter checks cover case and outer-space handling, partial names, exact categories, multiple matches, new resources, zero stock, empty inventory, no matches, invalid queries, and current availability after loans and returns. Report tests cover the full required scenario, ties, current versus historical borrowing, zero stock, the low-stock threshold, empty/no-loan reports, fellow-specific balances, and deliberate inconsistencies. Demo tests cover the non-interactive command, ordered steps, repeatability, isolation from existing state, help/invalid arguments, and detection of a rejection that wrongly mutates state. Rejection and read-only-operation tests compare state before and after the attempt.
 
 Try adding resource `r004`, name `Projector`, category `Electronics`, and total `4` through option `4`. Its stored ID becomes `R004`, with total and available units both set to 4. Option `3` lists all five inventory fields. Adding `R004` again is rejected. These are instructions to try locally, not the required seven-step demonstration output.
 
@@ -153,7 +155,9 @@ Run `python campuskit.py --demo` for the standalone verified demonstration. It s
 | `docs/demo-output.txt` | Actual output captured from `python3 campuskit.py --demo`. |
 | `docs/test-output.txt` | Actual verbose output captured from `python3 -m unittest -v`; 55 tests passed. |
 | `docs/persistence-output.txt` | Actual output from three processes proving loans and returns survive restarts. |
-| `docs/design.md` (planned for Stage 10) | Final explanation of implemented functions, data representation, and limitations. |
+| `docs/design.md` | Final explanation of implemented functions, data representation, and limitations. |
+| `docs/submission.md` | A1/A2/A3 preparation instructions and a concise design explanation. |
+| `docs/final-verification.txt` | Clean-directory verification, Python version, and tested source hashes. |
 | `.gitignore` | Exclude Python cache files and local saved data. |
 | `data/campuskit.json` | Default local saved state, created on the first successful change; not committed. |
 
@@ -169,7 +173,7 @@ Use `python3` if that is your system's Python 3 command, or `py` on Windows wher
 
 ## Build stages and GitHub checkpoints
 
-We will complete one stage at a time. For each stage: explain the change, implement it, verify its behaviour, review the result, update project status, then commit and push to GitHub before moving on.
+The project was built one stage at a time, with verification and a GitHub commit for each stage.
 
 | Stage | Deliverable | Completion check | Suggested commit |
 | --- | --- | --- | --- |
@@ -182,9 +186,9 @@ We will complete one stage at a time. For each stage: explain the change, implem
 | 7. Reports and loan visibility — complete | Required reports, all tied leaders, fellow loan view, stock labels, and consistency checks. | Totals agree with loans; ties, zero stock, and no outstanding loans are handled correctly. | `feat: add stock reports and fellow loan views` |
 | 8. Demonstration and test evidence — complete | Fresh-state demo, full regression tests, and captured output. | Steps 1–7 pass in order; include an additional invalid-input test and actual output. | `test: verify requirements and capture demonstration evidence` |
 | 9. Optional JSON persistence — complete | Save/reload inventory and borrowing records using `json`. | Restart preserves state; malformed or inconsistent files are rejected without silently overwriting them; demo remains isolated. | `feat: add optional JSON save and reload` |
-| 10. Final review and submission | Update README, complete design explanation, rerun checks, and prepare A1/A2/A3. | A fresh checkout runs locally, evidence matches final code, and all changes are pushed. | `docs: finalize usage and project submission` |
+| 10. Final review and submission preparation — complete | Update README, complete design explanation, rerun checks, and prepare A1/A2/A3. | A clean source copy runs locally, evidence matches final code, and submission files are prepared. | `docs: finalize usage and project submission` |
 
-Tests for each feature will be introduced alongside that feature. Stage 8 brings them together and captures the required evidence. Stage 9 is optional; complete the required project first.
+Tests were added alongside each feature. Stage 8 captured demonstration evidence, Stage 9 added the optional persistence bonus, and Stage 10 verified a clean copy and prepared the final submission documents.
 
 ## Required demonstration specification
 
@@ -227,7 +231,7 @@ The default save file is ignored by Git. Custom `--data` files should be kept ou
 
 ## Actual demonstration and test evidence
 
-Current evidence was refreshed after Stage 9 and captured from successful local Python 3 executions of this stage's source code:
+Demonstration and test evidence were refreshed during Stage 10 from a clean source copy; the restart transcript was captured in Stage 9 using the same unchanged application source:
 
 - [Demonstration output](docs/demo-output.txt): all seven required steps followed by the additional invalid-input test.
 - [Verbose test output](docs/test-output.txt): 55 tests passed, including menu subprocess tests and persistence failure/restart cases.
@@ -242,19 +246,20 @@ python campuskit.py --demo > docs/demo-output.txt 2>&1
 python -m unittest -v > docs/test-output.txt 2>&1
 ```
 
-Use `python3` instead if needed. Check both commands exit successfully and review the files before submitting. These files are captured runtime output, not hand-written expected results. Test execution time can vary. Stage 9 JSON persistence is complete; Stage 10 completes the final design explanation and submission review.
+Use `python3` instead if needed. Check both commands exit successfully and review the files before submitting. These files are captured runtime output, not hand-written expected results. Test execution time can vary. JSON persistence, final verification, and the design explanation are complete. See [final-verification.txt](docs/final-verification.txt) for the tested file hashes and execution environment.
 
-## Submission checklist
+## Submission preparation
 
-- [ ] **A1 — Source code (50 marks):** provide the full final Python code as requested by the submission field, plus a viewable source link if appropriate. Check repository access for the grader.
-- [ ] **A2 — Demonstration and test evidence (15 marks):** paste actual output from Steps 1–7 in order and one additional invalid-input test. Never present the acceptance table as executed evidence.
-- [ ] **A3 — Design explanation (5 marks):** describe at least four implemented functions, the inventory and fellow-loan representations, and one genuine design limitation.
-- [ ] **Optional bonus:** demonstrate JSON saving and reloading if Stage 9 is completed.
-- [ ] Ensure final evidence was generated from the submitted code and commit.
+- [x] **A1 — Source code:** complete application in [campuskit.py](campuskit.py).
+- [x] **A2 — Evidence:** actual [demonstration output](docs/demo-output.txt) and [test output](docs/test-output.txt).
+- [x] **A3 — Design:** functions, data representation, and limitations in [design.md](docs/design.md).
+- [x] **Optional bonus:** implemented JSON persistence with [restart evidence](docs/persistence-output.txt).
+- [x] **Final verification:** clean-copy execution and source hashes in [final-verification.txt](docs/final-verification.txt).
+- [ ] **Fellow's final action:** review the files, paste them into the assessment fields, verify link access, and submit. See [submission.md](docs/submission.md).
 
 ## Design limitations
 
-The planned application is for one local operator at a time. Fellow ID checks confirm that an ID exists; they do not authenticate the person using it. Resources are tracked by quantity, so individual laptop serial numbers, damage, due dates, and fines are outside scope. Temporary sessions started with `--no-save` lose changes on exit. JSON saving supports one operator/process at a time; simultaneous writers are not supported. It is not a database or a backup system.
+The application is for one local operator at a time. Fellow ID checks confirm that an ID exists; they do not authenticate the person using it. Resources are tracked by quantity, so individual laptop serial numbers, damage, due dates, and fines are outside scope. Temporary sessions started with `--no-save` lose changes on exit. JSON saving supports one operator/process at a time; simultaneous writers are not supported. It is not a database or a backup system.
 
 ## Learning workflow
 

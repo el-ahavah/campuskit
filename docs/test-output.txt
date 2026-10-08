@@ -55,6 +55,6 @@ test_new_resources_and_zero_stock_remain_searchable (test_campuskit.SearchTests.
 test_search_after_steps_one_to_five_shows_current_stock_without_changes (test_campuskit.SearchTests.test_search_after_steps_one_to_five_shows_current_stock_without_changes) ... ok
 
 ----------------------------------------------------------------------
-Ran 55 tests in 0.468s
+Ran 55 tests in 0.517s
 
 OK

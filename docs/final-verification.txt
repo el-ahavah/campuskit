@@ -1,0 +1,16 @@
+CampusKit final verification
+Python: 3.12.14
+Platform: Linux
+Method: clean temporary directory containing only campuskit.py and test_campuskit.py.
+
+campuskit.py SHA-256: 2c01aaafd616cd0739f01dcd0beaad98d8146aa871ba6e5b92e52f2dd73da4f9
+test_campuskit.py SHA-256: c44b947ff927404fd8308f3c4fdf04e57dca2726958247dcaab4b9f4616fac7f
+Command: python3 campuskit.py --demo | exit: 0
+Command: python3 -m unittest -v | exit: 0
+----------------------------------------------------------------------
+Ran 55 tests in 0.517s
+
+OK
+Normal startup and exit with no save: PASS
+Demo and tests left no working save file: PASS
+No third-party packages installed or required.
