@@ -1,11 +1,10 @@
-CampusKit verification after restoring JSON with user edits
+CampusKit simplified version verification
 Python: 3.12.14
 Platform: Linux
-campuskit.py SHA-256: a1bcb789a94ef331ac14d74160994dacf8793d3a9196ea948141e85efafca6db
-test_campuskit.py SHA-256: c44b947ff927404fd8308f3c4fdf04e57dca2726958247dcaab4b9f4616fac7f
-python3 campuskit.py --demo | exit: 0
-python3 -m unittest -v | exit: 0
-----------------------------------------------------------------------
-Ran 55 tests in 0.495s
-
-OK
+Method: clean directory with application and test script.
+campuskit.py SHA-256: bd50b7e23ae621eabc29226bc45e7091eb8b866d99965a9c0e4a1701818155a3
+test_campuskit.py SHA-256: 12d1274704564e060d3c696d9bfda4d6198d6d5262fc18d4cca63edae794d738
+Function definitions across application and test script: 9
+Command: python3 campuskit.py --demo | exit: 0
+Command: python3 test_campuskit.py | exit: 0
+All test groups passed; JSON omitted; no external packages required.
