@@ -47,7 +47,7 @@ class FoundationTests(unittest.TestCase):
     def test_cli_recovers_from_invalid_input_and_repeats_menu(self):
         result = subprocess.run(
             [sys.executable, str(Path(campuskit.__file__))],
-            input="\nwrong\n9\n1\n2\n0\n", text=True,
+            input="\nwrong\n99\n1\n2\n0\n", text=True,
             capture_output=True, timeout=5,
         )
         self.assertEqual(result.returncode, 0)
@@ -455,6 +455,130 @@ class SearchTests(unittest.TestCase):
                     ["R002", "Keyboard", "Accessories", "5", "5"],
                     ["R003", "Headset", "Accessories", "3", "3"]):
             self.assertEqual(rows.count(row), 1)
+        self.assertTrue(result.stdout.rstrip().endswith("Goodbye from CampusKit."))
+
+
+class ReportTests(unittest.TestCase):
+    def setUp(self):
+        self.resources, self.fellows, self.loans = campuskit.create_initial_state()
+
+    def borrow(self, fellow, resource, quantity):
+        campuskit.borrow_resource(self.resources, self.fellows, self.loans, fellow, resource, quantity)
+
+    def give_back(self, fellow, resource, quantity):
+        campuskit.return_resource(self.resources, self.fellows, self.loans, fellow, resource, quantity)
+
+    def report(self):
+        return campuskit.generate_report(self.resources, self.fellows, self.loans)
+
+    def test_required_seven_steps_and_report_do_not_change_state(self):
+        self.borrow("F001", "R001", 2)
+        self.borrow("F002", "R002", 3)
+        self.give_back("F001", "R001", 1)
+        with self.assertRaises(ValueError):
+            self.borrow("F003", "R003", 4)
+        with self.assertRaises(ValueError):
+            self.give_back("F002", "R002", 4)
+        self.assertEqual(campuskit.search_resources(self.resources, "LAPtop")[0]["name"], "Laptop")
+        before = deepcopy((self.resources, self.fellows, self.loans))
+        report = self.report()
+        self.assertEqual((report["total"], report["available"], report["borrowed"]), (18, 14, 4))
+        self.assertEqual([(r["id"], r["available"]) for r in report["low_stock"]], [("R002", 2)])
+        self.assertEqual([(r["id"], r["borrowed"]) for r in report["most_borrowed"]], [("R002", 3)])
+        self.assertEqual(campuskit.check_consistency(self.resources, self.fellows, self.loans), [])
+        self.assertEqual((self.resources, self.fellows, self.loans), before)
+
+    def test_all_tied_leaders_and_current_not_historical_borrowing(self):
+        for resource in ("R001", "R002", "R003"):
+            self.borrow("F001", resource, 3)
+        self.assertEqual([r["id"] for r in self.report()["most_borrowed"]], ["R001", "R002", "R003"])
+        self.give_back("F001", "R001", 3)
+        self.assertEqual([r["id"] for r in self.report()["most_borrowed"]], ["R002", "R003"])
+        self.give_back("F001", "R002", 3)
+        self.give_back("F001", "R003", 3)
+        self.assertEqual(self.report()["most_borrowed"], [])
+        self.assertEqual(self.report()["borrowed"], 0)
+
+    def test_low_stock_threshold_includes_zero_excludes_three(self):
+        self.borrow("F001", "R001", 10)
+        self.borrow("F002", "R002", 3)
+        report = self.report()
+        self.assertEqual([r["available"] for r in report["low_stock"]], [0, 2])
+        self.assertEqual([r["status"] for r in report["resources"]],
+                         ["OUT OF STOCK", "LOW STOCK", "AVAILABLE"])
+        self.assertEqual(campuskit.stock_status(1), "LOW STOCK")
+
+    def test_empty_and_initial_reports(self):
+        empty = campuskit.generate_report([], self.fellows, [])
+        self.assertEqual((empty["total"], empty["available"], empty["borrowed"]), (0, 0, 0))
+        for key in ("resources", "low_stock", "most_borrowed"):
+            self.assertEqual(empty[key], [])
+        initial = self.report()
+        self.assertEqual((initial["total"], initial["available"], initial["borrowed"]), (18, 18, 0))
+        output = io.StringIO()
+        with redirect_stdout(output):
+            campuskit.show_report([], self.fellows, [])
+        self.assertIn("No resources in inventory.", output.getvalue())
+        self.assertIn("No units currently borrowed.", output.getvalue())
+
+    def test_fellow_view_aggregates_only_outstanding_matching_loans(self):
+        self.borrow("F001", "R001", 2)
+        self.borrow("F001", "R001", 3)
+        self.borrow("F002", "R001", 1)
+        self.borrow("F001", "R002", 2)
+        self.give_back("F001", "R001", 2)
+        self.give_back("F001", "R002", 2)
+        before = deepcopy((self.resources, self.fellows, self.loans))
+        self.assertEqual(campuskit.get_fellow_loans(self.resources, self.fellows, self.loans, " f001 "),
+                         [{"resource_id": "R001", "name": "Laptop", "outstanding": 3}])
+        self.assertEqual(campuskit.get_fellow_loans(self.resources, self.fellows, self.loans, "F003"), [])
+        with self.assertRaisesRegex(ValueError, "Unknown fellow"):
+            campuskit.get_fellow_loans(self.resources, self.fellows, self.loans, "F999")
+        self.assertEqual((self.resources, self.fellows, self.loans), before)
+
+    def test_consistency_mismatch_is_reported_without_repair(self):
+        self.resources[0]["available"] = 9
+        before = deepcopy((self.resources, self.fellows, self.loans))
+        with self.assertRaisesRegex(ValueError, "R001.*does not equal total"):
+            self.report()
+        output = io.StringIO()
+        with redirect_stdout(output):
+            campuskit.show_report(self.resources, self.fellows, self.loans)
+        self.assertIn("Cannot generate report", output.getvalue())
+        self.assertNotIn("Consistency check: PASS", output.getvalue())
+        self.assertEqual((self.resources, self.fellows, self.loans), before)
+
+    def test_invalid_counts_unknown_references_and_duplicates_fail_checks(self):
+        self.borrow("F001", "R001", 2)
+        for field, value in (("quantity_returned", 3), ("quantity_returned", -1),
+                             ("quantity_borrowed", True), ("quantity_borrowed", 0),
+                             ("fellow_id", "F999"), ("resource_id", "R999")):
+            with self.subTest(field=field, value=value):
+                records = deepcopy(self.loans)
+                records[0][field] = value
+                self.assertTrue(campuskit.check_consistency(self.resources, self.fellows, records))
+        for total, available in ((10, 11), (10, -1), (0, 0), (10, True), ("10", 8)):
+            resources = deepcopy(self.resources)
+            resources[0].update(total=total, available=available)
+            self.assertTrue(campuskit.check_consistency(resources, self.fellows, self.loans))
+        self.assertIn("Duplicate loan IDs found.", campuskit.check_consistency(
+            self.resources, self.fellows, self.loans + deepcopy(self.loans)))
+        self.assertIn("Duplicate resource IDs found.", campuskit.check_consistency(
+            self.resources + [deepcopy(self.resources[0])], self.fellows, self.loans))
+
+    def test_cli_complete_required_scenario_and_fellow_views(self):
+        result = subprocess.run(
+            [sys.executable, str(Path(campuskit.__file__))],
+            input="5\nF001\nR001\n2\n5\nF002\nR002\n3\n6\nF001\nR001\n1\n5\nF003\nR003\n4\n6\nF002\nR002\n4\n7\nLAPtop\n9\n10\n f001 \n10\nF003\n10\nF999\n0\n",
+            text=True, capture_output=True, timeout=5,
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stderr, "")
+        for text in ("Total units: 18", "Available units: 14", "Units currently borrowed: 4",
+                     "R002 | Keyboard | Available: 2", "R002 | Keyboard | Borrowed: 3",
+                     "Consistency check: PASS", "Outstanding loans: F001 | Ada",
+                     "R001 | Laptop | Outstanding: 1", "No outstanding loans.", "Unknown fellow ID F999"):
+            self.assertIn(text, result.stdout)
         self.assertTrue(result.stdout.rstrip().endswith("Goodbye from CampusKit."))
 
 

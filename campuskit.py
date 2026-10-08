@@ -269,6 +269,131 @@ def prompt_filter_by_category(resources):
         print(f"No resources found in category '{category}'.")
 
 
+def check_consistency(resources, fellows, borrow_records):
+    """Return stock/loan consistency errors without repairing or changing state."""
+    errors = []
+    resource_ids = [r["id"] for r in resources]
+    if len(set(resource_ids)) != len(resource_ids):
+        errors.append("Duplicate resource IDs found.")
+    loan_ids = [r["loan_id"] for r in borrow_records]
+    if len(set(loan_ids)) != len(loan_ids):
+        errors.append("Duplicate loan IDs found.")
+    borrowed = {resource_id: 0 for resource_id in resource_ids}
+    for record in borrow_records:
+        label = record["loan_id"]
+        if record["fellow_id"] not in fellows:
+            errors.append(f"{label}: unknown fellow ID.")
+        if record["resource_id"] not in borrowed:
+            errors.append(f"{label}: unknown resource ID.")
+        issued, returned = record["quantity_borrowed"], record["quantity_returned"]
+        if (type(issued) is not int or type(returned) is not int
+                or issued <= 0 or not 0 <= returned <= issued):
+            errors.append(f"{label}: invalid borrowed or returned quantity.")
+            continue
+        if record["resource_id"] in borrowed:
+            borrowed[record["resource_id"]] += issued - returned
+    for resource in resources:
+        total, available = resource["total"], resource["available"]
+        if (type(total) is not int or type(available) is not int
+                or total <= 0 or not 0 <= available <= total):
+            errors.append(f"{resource['id']}: invalid stock quantities.")
+        elif available + borrowed[resource["id"]] != total:
+            errors.append(f"{resource['id']}: available stock plus outstanding loans does not equal total.")
+    return errors
+
+
+def stock_status(available):
+    """Label stock using the assignment's fewer-than-three threshold."""
+    if available == 0:
+        return "OUT OF STOCK"
+    if available < 3:
+        return "LOW STOCK"
+    return "AVAILABLE"
+
+
+def generate_report(resources, fellows, borrow_records):
+    """Calculate current stock figures, refusing inconsistent inventory/loans."""
+    errors = check_consistency(resources, fellows, borrow_records)
+    if errors:
+        raise ValueError("Consistency check failed: " + " ".join(errors))
+    rows = []
+    for resource in resources:
+        borrowed = sum(r["quantity_borrowed"] - r["quantity_returned"]
+                       for r in borrow_records if r["resource_id"] == resource["id"])
+        rows.append({**resource, "borrowed": borrowed, "status": stock_status(resource["available"])})
+    highest = max((row["borrowed"] for row in rows), default=0)
+    return {
+        "total": sum(row["total"] for row in rows),
+        "available": sum(row["available"] for row in rows),
+        "borrowed": sum(row["borrowed"] for row in rows),
+        "resources": rows,
+        "low_stock": [row for row in rows if row["available"] < 3],
+        "most_borrowed": [row for row in rows if highest > 0 and row["borrowed"] == highest],
+    }
+
+
+def show_report(resources, fellows, borrow_records):
+    """Display totals, stock labels, low stock, and every tied leader."""
+    try:
+        report = generate_report(resources, fellows, borrow_records)
+    except ValueError as error:
+        print(f"Cannot generate report. {error}")
+        return
+    print("\nCampusKit stock report")
+    print(f"Total units: {report['total']}")
+    print(f"Available units: {report['available']}")
+    print(f"Units currently borrowed: {report['borrowed']}")
+    print("Stock by resource:")
+    if not report["resources"]:
+        print("No resources in inventory.")
+    for row in report["resources"]:
+        print(f"{row['id']} | {row['name']} | Total: {row['total']} | "
+              f"Available: {row['available']} | Borrowed: {row['borrowed']} | {row['status']}")
+    print("Low stock (fewer than 3 available):")
+    if not report["low_stock"]:
+        print("None.")
+    for row in report["low_stock"]:
+        print(f"{row['id']} | {row['name']} | Available: {row['available']}")
+    print("Most units currently borrowed (all tied leaders):")
+    if not report["most_borrowed"]:
+        print("No units currently borrowed.")
+    for row in report["most_borrowed"]:
+        print(f"{row['id']} | {row['name']} | Borrowed: {row['borrowed']}")
+    print("Consistency check: PASS")
+
+
+def get_fellow_loans(resources, fellows, borrow_records, fellow_id):
+    """Group a fellow's outstanding loans by resource, omitting settled loans."""
+    fellow_id = validate_text(fellow_id, "Fellow ID").upper()
+    if fellow_id not in fellows:
+        raise ValueError(f"Unknown fellow ID {fellow_id}.")
+    errors = check_consistency(resources, fellows, borrow_records)
+    if errors:
+        raise ValueError("Consistency check failed: " + " ".join(errors))
+    rows = []
+    for resource in resources:
+        quantity = outstanding_quantity(borrow_records, fellow_id, resource["id"])
+        if quantity:
+            rows.append({"resource_id": resource["id"], "name": resource["name"], "outstanding": quantity})
+    return rows
+
+
+def prompt_fellow_loans(resources, fellows, borrow_records):
+    """Ask for a fellow and display only their outstanding resource quantities."""
+    fellow_id = read_non_empty("Fellow ID: ").upper()
+    try:
+        rows = get_fellow_loans(resources, fellows, borrow_records, fellow_id)
+    except ValueError as error:
+        print(f"Cannot show fellow loans. {error}")
+        return
+    print(f"\nOutstanding loans: {fellow_id} | {fellows[fellow_id]}")
+    if not rows:
+        print("No outstanding loans.")
+    for row in rows:
+        print(f"{row['resource_id']} | {row['name']} | Outstanding: {row['outstanding']}")
+    print(f"Total units on loan: {sum(row['outstanding'] for row in rows)}")
+
+
 def show_menu():
     """Display only the actions currently implemented."""
     print("\nCampusKit | Main menu")
@@ -280,20 +405,22 @@ def show_menu():
     print("6. Return a resource")
     print("7. Search resources by name")
     print("8. Filter resources by category")
+    print("9. View stock report")
+    print("10. View a fellow's outstanding loans")
     print("0. Exit")
 
 
 def read_menu_choice():
     """Keep asking until the user chooses an available menu action."""
     while True:
-        choice = read_non_empty("Choose an option (0-8): ")
-        if choice in ("0", "1", "2", "3", "4", "5", "6", "7", "8"):
+        choice = read_non_empty("Choose an option (0-10): ")
+        if choice in ("0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"):
             return choice
-        print("Invalid option. Please choose a number from 0 to 8.")
+        print("Invalid option. Please choose a number from 0 to 10.")
 
 
 def show_overview(resources, fellows, borrow_records):
-    """Show session counts; full stock reporting arrives in Stage 7."""
+    """Show session counts; option 9 provides the full stock report."""
     print("\nSession overview")
     print(f"Resource types: {len(resources)}")
     print(f"Registered fellows: {len(fellows)}")
@@ -338,6 +465,10 @@ def main():
                 prompt_search_resources(resources)
             elif choice == "8":
                 prompt_filter_by_category(resources)
+            elif choice == "9":
+                show_report(resources, fellows, borrow_records)
+            elif choice == "10":
+                prompt_fellow_loans(resources, fellows, borrow_records)
     except (EOFError, KeyboardInterrupt):
         print("\nInput ended. Closing CampusKit.")
     print("Goodbye from CampusKit.")
