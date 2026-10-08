@@ -383,5 +383,80 @@ class ReturnTests(unittest.TestCase):
         self.assertTrue(result.stdout.rstrip().endswith("Goodbye from CampusKit."))
 
 
+class SearchTests(unittest.TestCase):
+    def setUp(self):
+        self.resources, self.fellows, self.loans = campuskit.create_initial_state()
+
+    def test_name_search_ignores_case_and_supports_partial_matches(self):
+        for query in ("LAPtop", " laptop ", "LAP", "top"):
+            with self.subTest(query=query):
+                self.assertEqual([r["id"] for r in campuskit.search_resources(self.resources, query)], ["R001"])
+        self.assertEqual([r["id"] for r in campuskit.search_resources(self.resources, "a")],
+                         ["R001", "R002", "R003"])
+        self.assertEqual(campuskit.search_resources(self.resources, "Electronics"), [])
+
+    def test_category_filter_is_case_insensitive_but_exact(self):
+        for category in ("Accessories", "ACCESSORIES", " accessories "):
+            with self.subTest(category=category):
+                self.assertEqual([r["id"] for r in campuskit.filter_by_category(self.resources, category)],
+                                 ["R002", "R003"])
+        self.assertEqual(campuskit.filter_by_category(self.resources, "Access"), [])
+        self.assertEqual(campuskit.filter_by_category(self.resources, "Laptop"), [])
+
+    def test_empty_no_match_and_invalid_queries_preserve_state(self):
+        before = deepcopy((self.resources, self.fellows, self.loans))
+        for function in (campuskit.search_resources, campuskit.filter_by_category):
+            self.assertEqual(function([], "Laptop"), [])
+            self.assertEqual(function(self.resources, "Missing"), [])
+            for query in ("", "  ", None, 123):
+                with self.subTest(function=function.__name__, query=query):
+                    with self.assertRaises(ValueError):
+                        function(self.resources, query)
+            self.assertEqual((self.resources, self.fellows, self.loans), before)
+
+    def test_search_after_steps_one_to_five_shows_current_stock_without_changes(self):
+        campuskit.borrow_resource(self.resources, self.fellows, self.loans, "F001", "R001", 2)
+        campuskit.borrow_resource(self.resources, self.fellows, self.loans, "F002", "R002", 3)
+        campuskit.return_resource(self.resources, self.fellows, self.loans, "F001", "R001", 1)
+        with self.assertRaises(ValueError):
+            campuskit.borrow_resource(self.resources, self.fellows, self.loans, "F003", "R003", 4)
+        with self.assertRaises(ValueError):
+            campuskit.return_resource(self.resources, self.fellows, self.loans, "F002", "R002", 4)
+        before = deepcopy((self.resources, self.fellows, self.loans))
+        matches = campuskit.search_resources(self.resources, "LAPtop")
+        self.assertEqual(matches, [{"id": "R001", "name": "Laptop", "category": "Electronics",
+                                    "total": 10, "available": 9}])
+        self.assertEqual([r["available"] for r in campuskit.filter_by_category(self.resources, "Accessories")], [2, 3])
+        self.assertEqual((self.resources, self.fellows, self.loans), before)
+
+    def test_new_resources_and_zero_stock_remain_searchable(self):
+        campuskit.add_resource(self.resources, "R004", "Laptop Stand", "accessories", 1)
+        campuskit.borrow_resource(self.resources, self.fellows, self.loans, "F001", "R004", 1)
+        self.assertEqual([r["id"] for r in campuskit.search_resources(self.resources, "laptop")], ["R001", "R004"])
+        matches = campuskit.filter_by_category(self.resources, "ACCESSORIES")
+        self.assertEqual([r["id"] for r in matches], ["R002", "R003", "R004"])
+        self.assertEqual(matches[-1]["available"], 0)
+
+    def test_cli_search_filter_blank_retry_and_no_matches(self):
+        result = subprocess.run(
+            [sys.executable, str(Path(campuskit.__file__))],
+            input="7\n\n LAPtop \n8\n \n aCCESSories \n7\nMissing\n8\nAccess\n0\n",
+            text=True, capture_output=True, timeout=5,
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stderr, "")
+        self.assertEqual(result.stdout.count("cannot be blank"), 2)
+        self.assertIn("Matches found: 1", result.stdout)
+        self.assertIn("Matches found: 2", result.stdout)
+        self.assertIn("No resources match name 'Missing'.", result.stdout)
+        self.assertIn("No resources found in category 'Access'.", result.stdout)
+        rows = [line.split() for line in result.stdout.splitlines()]
+        for row in (["R001", "Laptop", "Electronics", "10", "10"],
+                    ["R002", "Keyboard", "Accessories", "5", "5"],
+                    ["R003", "Headset", "Accessories", "3", "3"]):
+            self.assertEqual(rows.count(row), 1)
+        self.assertTrue(result.stdout.rstrip().endswith("Goodbye from CampusKit."))
+
+
 if __name__ == "__main__":
     unittest.main()

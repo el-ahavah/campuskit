@@ -232,6 +232,43 @@ def prompt_return_resource(resources, fellows, borrow_records):
     print(f"Available now: {receipt['available']}")
 
 
+def search_resources(resources, query):
+    """Find names containing the query, ignoring case and outer spaces."""
+    query = validate_text(query, "Search term").casefold()
+    return [resource for resource in resources if query in resource["name"].casefold()]
+
+
+def filter_by_category(resources, category):
+    """Match a complete category name, ignoring case and outer spaces."""
+    category = validate_text(category, "Category").casefold()
+    return [resource for resource in resources
+            if resource["category"].strip().casefold() == category]
+
+
+def prompt_search_resources(resources):
+    """Display matching resources or a specific no-match message."""
+    print("\nSearch resources by name")
+    query = read_non_empty("Name or part of name: ")
+    matches = search_resources(resources, query)
+    if matches:
+        print(f"Matches found: {len(matches)}")
+        list_resources(matches)
+    else:
+        print(f"No resources match name '{query}'.")
+
+
+def prompt_filter_by_category(resources):
+    """Display the resources in the requested category."""
+    print("\nFilter resources by category")
+    category = read_non_empty("Category (for example Accessories): ")
+    matches = filter_by_category(resources, category)
+    if matches:
+        print(f"Matches found: {len(matches)}")
+        list_resources(matches)
+    else:
+        print(f"No resources found in category '{category}'.")
+
+
 def show_menu():
     """Display only the actions currently implemented."""
     print("\nCampusKit | Main menu")
@@ -241,16 +278,18 @@ def show_menu():
     print("4. Add a resource")
     print("5. Borrow a resource")
     print("6. Return a resource")
+    print("7. Search resources by name")
+    print("8. Filter resources by category")
     print("0. Exit")
 
 
 def read_menu_choice():
     """Keep asking until the user chooses an available menu action."""
     while True:
-        choice = read_non_empty("Choose an option (0-6): ")
-        if choice in ("0", "1", "2", "3", "4", "5", "6"):
+        choice = read_non_empty("Choose an option (0-8): ")
+        if choice in ("0", "1", "2", "3", "4", "5", "6", "7", "8"):
             return choice
-        print("Invalid option. Please choose 0, 1, 2, 3, 4, 5, or 6.")
+        print("Invalid option. Please choose a number from 0 to 8.")
 
 
 def show_overview(resources, fellows, borrow_records):
@@ -295,6 +334,10 @@ def main():
                 prompt_borrow_resource(resources, fellows, borrow_records)
             elif choice == "6":
                 prompt_return_resource(resources, fellows, borrow_records)
+            elif choice == "7":
+                prompt_search_resources(resources)
+            elif choice == "8":
+                prompt_filter_by_category(resources)
     except (EOFError, KeyboardInterrupt):
         print("\nInput ended. Closing CampusKit.")
     print("Goodbye from CampusKit.")
