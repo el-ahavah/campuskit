@@ -1,4 +1,4 @@
-"""Foundation, inventory, and borrowing checks; run with python -m unittest -v."""
+"""CampusKit regression checks; run with python -m unittest -v."""
 
 import io
 import subprocess
@@ -245,6 +245,138 @@ class BorrowingTests(unittest.TestCase):
             self.assertIn(text, result.stdout)
         rows = [line.split() for line in result.stdout.splitlines()]
         for row in (["R001", "Laptop", "Electronics", "10", "8"],
+                    ["R002", "Keyboard", "Accessories", "5", "2"],
+                    ["R003", "Headset", "Accessories", "3", "3"]):
+            self.assertIn(row, rows)
+        self.assertTrue(result.stdout.rstrip().endswith("Goodbye from CampusKit."))
+
+
+class ReturnTests(unittest.TestCase):
+    def setUp(self):
+        self.resources, self.fellows, self.loans = campuskit.create_initial_state()
+
+    def borrow(self, fellow, resource, quantity):
+        return campuskit.borrow_resource(self.resources, self.fellows, self.loans, fellow, resource, quantity)
+
+    def give_back(self, fellow, resource, quantity):
+        return campuskit.return_resource(self.resources, self.fellows, self.loans, fellow, resource, quantity)
+
+    def assert_stock_matches_loans(self):
+        for resource in self.resources:
+            owed = sum(r["quantity_borrowed"] - r["quantity_returned"]
+                       for r in self.loans if r["resource_id"] == resource["id"])
+            self.assertEqual(resource["available"] + owed, resource["total"])
+            self.assertGreaterEqual(resource["available"], 0)
+            self.assertLessEqual(resource["available"], resource["total"])
+
+    def test_required_steps_one_to_five_in_order(self):
+        self.borrow("F001", "R001", 2)
+        self.assertEqual(self.resources[0]["available"], 8)
+        self.borrow("F002", "R002", 3)
+        self.assertEqual(self.resources[1]["available"], 2)
+        receipt = self.give_back(" f001 ", " r001 ", 1)
+        self.assertEqual(receipt, {"fellow_id": "F001", "resource_id": "R001",
+                                  "quantity_returned": 1, "outstanding": 1, "available": 9})
+        before = deepcopy((self.resources, self.fellows, self.loans))
+        with self.assertRaises(ValueError):
+            self.borrow("F003", "R003", 4)
+        self.assertEqual((self.resources, self.fellows, self.loans), before)
+        with self.assertRaisesRegex(ValueError, "has 3 units.*cannot return 4"):
+            self.give_back("F002", "R002", 4)
+        self.assertEqual((self.resources, self.fellows, self.loans), before)
+        self.assertEqual(self.loans[0]["quantity_returned"], 1)
+        self.assertEqual(self.loans[1]["quantity_returned"], 0)
+        self.assertEqual(sum(r["available"] for r in self.resources), 14)
+        self.assert_stock_matches_loans()
+
+    def test_full_return_retains_history_and_rejects_double_return(self):
+        self.borrow("F001", "R001", 2)
+        self.give_back("F001", "R001", 2)
+        self.assertEqual(self.resources[0]["available"], 10)
+        self.assertEqual(len(self.loans), 1)
+        self.assertEqual(self.loans[0]["quantity_borrowed"], 2)
+        self.assertEqual(self.loans[0]["quantity_returned"], 2)
+        before = deepcopy((self.resources, self.fellows, self.loans))
+        with self.assertRaisesRegex(ValueError, "has 0 units"):
+            self.give_back("F001", "R001", 1)
+        self.assertEqual((self.resources, self.fellows, self.loans), before)
+        self.assertEqual(self.borrow("F001", "R001", 1)["loan_id"], "L002")
+        self.give_back("F001", "R001", 1)
+        self.assertEqual([r["quantity_returned"] for r in self.loans], [2, 1])
+        self.assert_stock_matches_loans()
+
+    def test_returns_span_oldest_loans_without_touching_other_loans(self):
+        self.borrow("F001", "R001", 2)
+        self.borrow("F002", "R001", 1)
+        self.borrow("F001", "R002", 1)
+        self.borrow("F001", "R001", 3)
+        other_loans = deepcopy([self.loans[1], self.loans[2]])
+        self.give_back("F001", "R001", 1)
+        self.give_back("F001", "R001", 3)
+        self.assertEqual([r["quantity_returned"] for r in self.loans], [2, 0, 0, 2])
+        self.assertEqual([self.loans[1], self.loans[2]], other_loans)
+        self.assertEqual(campuskit.outstanding_quantity(self.loans, " f001 ", " r001 "), 1)
+        self.assertEqual(self.resources[0]["available"], 8)
+        self.give_back("F001", "R001", 1)
+        self.assertEqual(self.resources[0]["available"], 9)
+        self.assert_stock_matches_loans()
+
+    def test_excessive_return_across_multiple_loans_is_not_partially_applied(self):
+        self.borrow("F001", "R001", 2)
+        self.borrow("F001", "R001", 3)
+        self.give_back("F001", "R001", 1)
+        before = deepcopy((self.resources, self.fellows, self.loans))
+        with self.assertRaisesRegex(ValueError, "has 4 units"):
+            self.give_back("F001", "R001", 5)
+        self.assertEqual((self.resources, self.fellows, self.loans), before)
+
+    def test_invalid_returns_preserve_all_state(self):
+        self.borrow("F001", "R001", 2)
+        before = deepcopy((self.resources, self.fellows, self.loans))
+        cases = [("F999", "R001", 1), ("F001", "R999", 1),
+                 ("F002", "R001", 1), ("F001", "R002", 1)]
+        cases += [("F001", "R001", q) for q in (0, -1, 1.5, 2.0, "2", "two", None, True, False)]
+        cases += [(bad, "R001", 1) for bad in ("", " ", None, 123)]
+        cases += [("F001", bad, 1) for bad in ("", " ", None, 123)]
+        for args in cases:
+            with self.subTest(args=args):
+                with self.assertRaises(ValueError):
+                    self.give_back(*args)
+                self.assertEqual((self.resources, self.fellows, self.loans), before)
+
+    def test_return_without_any_borrowings_is_rejected(self):
+        before = deepcopy((self.resources, self.fellows, self.loans))
+        with self.assertRaisesRegex(ValueError, "has 0 units"):
+            self.give_back("F001", "R001", 1)
+        self.assertEqual((self.resources, self.fellows, self.loans), before)
+
+    def test_interrupted_return_preserves_state(self):
+        self.borrow("F001", "R001", 2)
+        before = deepcopy((self.resources, self.fellows, self.loans))
+        for error in (EOFError, KeyboardInterrupt):
+            for prefix in ([], ["F001"], ["F001", "R001"]):
+                with self.subTest(error=error, prefix=prefix):
+                    with patch("builtins.input", side_effect=prefix + [error]), redirect_stdout(io.StringIO()):
+                        with self.assertRaises(error):
+                            campuskit.prompt_return_resource(self.resources, self.fellows, self.loans)
+                    self.assertEqual((self.resources, self.fellows, self.loans), before)
+
+    def test_cli_return_receipts_rejections_and_inventory(self):
+        result = subprocess.run(
+            [sys.executable, str(Path(campuskit.__file__))],
+            input="5\nF001\nR001\n2\n5\nF002\nR002\n3\n6\n f001 \n r001 \n\ntwo\n0\n-1\n1.5\n1\n5\nF003\nR003\n4\n6\nF002\nR002\n4\n3\n1\n0\n",
+            text=True, capture_output=True, timeout=5,
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stderr, "")
+        self.assertEqual(result.stdout.count("Return confirmed"), 1)
+        self.assertEqual(result.stdout.count("Return rejected"), 1)
+        self.assertEqual(result.stdout.count("positive whole number"), 4)
+        for text in ("Quantity returned: 1", "Still on loan for this fellow: 1",
+                     "Available now: 9", "cannot return 4", "Borrowing records: 2"):
+            self.assertIn(text, result.stdout)
+        rows = [line.split() for line in result.stdout.splitlines()]
+        for row in (["R001", "Laptop", "Electronics", "10", "9"],
                     ["R002", "Keyboard", "Accessories", "5", "2"],
                     ["R003", "Headset", "Accessories", "3", "3"]):
             self.assertIn(row, rows)

@@ -126,7 +126,7 @@ def borrow_resource(resources, fellows, borrow_records, fellow_id, resource_id, 
             f"available; requested {quantity}."
         )
 
-    # Records are retained, including fully returned loans in later stages.
+    # Records are retained, including fully returned loans.
     record = {
         "loan_id": f"L{len(borrow_records) + 1:03d}",
         "fellow_id": fellow_id,
@@ -160,6 +160,78 @@ def prompt_borrow_resource(resources, fellows, borrow_records):
     print(f"Available now: {resource['available']}")
 
 
+def outstanding_quantity(borrow_records, fellow_id, resource_id):
+    """Count units this fellow still owes for this resource."""
+    fellow_id = validate_text(fellow_id, "Fellow ID").upper()
+    resource_id = validate_text(resource_id, "Resource ID").upper()
+    return sum(
+        record["quantity_borrowed"] - record["quantity_returned"]
+        for record in borrow_records
+        if record["fellow_id"] == fellow_id and record["resource_id"] == resource_id
+    )
+
+
+def return_resource(resources, fellows, borrow_records, fellow_id, resource_id, quantity):
+    """Validate a complete return, then settle the oldest matching loans first."""
+    fellow_id = validate_text(fellow_id, "Fellow ID").upper()
+    resource_id = validate_text(resource_id, "Resource ID").upper()
+    if fellow_id not in fellows:
+        raise ValueError(f"Unknown fellow ID {fellow_id}. Check the registered fellows.")
+    resource = find_resource(resources, resource_id)
+    if resource is None:
+        raise ValueError(f"Unknown resource ID {resource_id}. Check the resource inventory.")
+    if type(quantity) is not int or quantity <= 0:
+        raise ValueError("Quantity must be a positive whole number.")
+    outstanding = outstanding_quantity(borrow_records, fellow_id, resource_id)
+    if quantity > outstanding:
+        raise ValueError(
+            f"{fellow_id} has {outstanding} units of {resource['name']} on loan; "
+            f"cannot return {quantity}."
+        )
+
+    # All validation finishes before any record or stock is changed.
+    remaining = quantity
+    for record in borrow_records:
+        if record["fellow_id"] != fellow_id or record["resource_id"] != resource_id:
+            continue
+        owed = record["quantity_borrowed"] - record["quantity_returned"]
+        returned = min(remaining, owed)
+        record["quantity_returned"] += returned
+        remaining -= returned
+        if remaining == 0:
+            break
+    resource["available"] += quantity
+    return {
+        "fellow_id": fellow_id,
+        "resource_id": resource_id,
+        "quantity_returned": quantity,
+        "outstanding": outstanding - quantity,
+        "available": resource["available"],
+    }
+
+
+def prompt_return_resource(resources, fellows, borrow_records):
+    """Collect a return request and show its outcome."""
+    print("\nReturn a resource")
+    fellow_id = read_non_empty("Fellow ID: ")
+    resource_id = read_non_empty("Resource ID: ")
+    quantity = read_positive_integer("Quantity to return: ")
+    try:
+        receipt = return_resource(
+            resources, fellows, borrow_records, fellow_id, resource_id, quantity
+        )
+    except ValueError as error:
+        print(f"Return rejected: {error} No stock or loan records changed.")
+        return
+    resource = find_resource(resources, receipt["resource_id"])
+    print("Return confirmed")
+    print(f"Fellow: {receipt['fellow_id']} | {fellows[receipt['fellow_id']]}")
+    print(f"Resource: {resource['id']} | {resource['name']}")
+    print(f"Quantity returned: {receipt['quantity_returned']}")
+    print(f"Still on loan for this fellow: {receipt['outstanding']}")
+    print(f"Available now: {receipt['available']}")
+
+
 def show_menu():
     """Display only the actions currently implemented."""
     print("\nCampusKit | Main menu")
@@ -168,16 +240,17 @@ def show_menu():
     print("3. List resources")
     print("4. Add a resource")
     print("5. Borrow a resource")
+    print("6. Return a resource")
     print("0. Exit")
 
 
 def read_menu_choice():
     """Keep asking until the user chooses an available menu action."""
     while True:
-        choice = read_non_empty("Choose an option (0-5): ")
-        if choice in ("0", "1", "2", "3", "4", "5"):
+        choice = read_non_empty("Choose an option (0-6): ")
+        if choice in ("0", "1", "2", "3", "4", "5", "6"):
             return choice
-        print("Invalid option. Please choose 0, 1, 2, 3, 4, or 5.")
+        print("Invalid option. Please choose 0, 1, 2, 3, 4, 5, or 6.")
 
 
 def show_overview(resources, fellows, borrow_records):
@@ -201,7 +274,7 @@ def main():
     print("Welcome to CampusKit")
     print("Know what is available, who has it, and what comes back.")
     print("Inventory: add and list resources from the menu.")
-    print("Borrow resources using option 5. Returns arrive in Stage 5.")
+    print("Borrow resources using option 5; return them using option 6.")
     print("Session data is in memory only; nothing is saved on exit.")
 
     try:
@@ -220,6 +293,8 @@ def main():
                 prompt_add_resource(resources)
             elif choice == "5":
                 prompt_borrow_resource(resources, fellows, borrow_records)
+            elif choice == "6":
+                prompt_return_resource(resources, fellows, borrow_records)
     except (EOFError, KeyboardInterrupt):
         print("\nInput ended. Closing CampusKit.")
     print("Goodbye from CampusKit.")

@@ -8,9 +8,9 @@ Built with Python and its standard library only. Runs locally without frameworks
 
 ## Project status
 
-**Stages 1–4 complete: project plan, CLI foundation, inventory, and borrowing.**
+**Stages 1–5 complete: project plan, CLI foundation, inventory, borrowing, and returns.**
 
-The application starts with the required data, runs a repeating menu, displays the session overview and fellows, and supports adding and listing resources. Additions validate all fields before changing inventory, reject duplicate IDs regardless of case or outer spaces, and set available units equal to total units. Borrowing validates fellow/resource IDs, positive integer quantities, and available stock before recording a loan and reducing availability. Each successful borrowing prints a receipt. All 21 foundation, inventory, and borrowing tests have passed, including actual CLI subprocess runs. The complete required seven-step demonstration has not been implemented or run yet; its first two borrowing steps and insufficient-stock case are covered by tests. Each completed and verified stage has its own GitHub commit.
+The application starts with the required data, runs a repeating menu, displays the session overview and fellows, and supports adding and listing resources. Additions validate all fields before changing inventory, reject duplicate IDs regardless of case or outer spaces, and set available units equal to total units. Borrowing validates fellow/resource IDs, positive integer quantities, and available stock before recording a loan and reducing availability. Each successful borrowing prints a receipt. Returns validate the fellow’s outstanding quantity before updating the oldest matching loans and restoring stock. Full borrowing records are retained after return. All 29 tests have passed, including actual CLI subprocess runs. The complete required seven-step demonstration has not been implemented or run yet; Steps 1–5 now run in order in automated tests, including a CLI run; search and reports remain to be built. Each completed and verified stage has its own GitHub commit.
 
 Repository: [el-ahavah/campuskit](https://github.com/el-ahavah/campuskit)
 
@@ -68,9 +68,9 @@ Every new session starts with these values until optional persistence is impleme
 
 **Fellows:** a dictionary mapping valid fellow IDs to names. Fellow registration is outside the required scope; borrowing and returns use the supplied fellows.
 
-**Borrowing records:** a list containing one dictionary for each successful borrowing. Each record will contain `loan_id`, `fellow_id`, `resource_id`, `quantity_borrowed`, and `quantity_returned`. The outstanding quantity is `quantity_borrowed - quantity_returned`. Fully returned records remain in the list so the original borrowing is not lost.
+**Borrowing records:** a list containing one dictionary for each successful borrowing. Each record contains `loan_id`, `fellow_id`, `resource_id`, `quantity_borrowed`, and `quantity_returned`. The outstanding quantity is `quantity_borrowed - quantity_returned`. Fully returned records remain in the list so the original borrowing is not lost.
 
-If a fellow borrows the same resource more than once, returns will reduce the oldest outstanding borrowing first. Before updating anything, the program will confirm that the full requested return is valid across that fellow's records for that resource.
+If a fellow borrows the same resource more than once, returns reduce the oldest outstanding borrowing first. Before updating anything, the program confirms that the full requested return is valid across that fellow's records for that resource.
 
 **Report calculations:** sum resource totals and availability; calculate outstanding borrowed units from the records and verify that they agree with `total - available`. Most borrowed means the largest number of units still on loan, not the largest historical borrowing count. Include every tied leader. If no units are borrowed, report that explicitly.
 
@@ -115,21 +115,23 @@ From the project folder, start the program:
 python campuskit.py
 ```
 
-Choose `1` for the session overview, `2` for registered fellows, `3` to list resources, `4` to add a resource, `5` to borrow a resource, or `0` to exit. Blank or invalid menu choices show an explanation and prompt again. Ctrl+C or end-of-input closes the application cleanly. Each launch creates fresh data; saving is not implemented yet.
+Choose `1` for the session overview, `2` for registered fellows, `3` to list resources, `4` to add a resource, `5` to borrow a resource, `6` to return a resource, or `0` to exit. Blank or invalid menu choices show an explanation and prompt again. Ctrl+C or end-of-input closes the application cleanly. Each launch creates fresh data; saving is not implemented yet.
 
-Run the foundation, inventory, and borrowing checks:
+Run all checks:
 
 ```bash
 python -m unittest -v
 ```
 
-Stage 4 verification: **21 tests passed**, covering the foundation plus valid additions, normalized IDs, duplicate rejection, blank/non-text fields, invalid totals, inventory display, empty inventory, interrupted additions, and the full add/list menu flow. Borrowing checks also cover the first two required borrowing steps, unknown IDs, invalid quantities, insufficient stock, exact-stock borrowing, repeated loans, newly added resources, interrupted entry, and CLI receipts. Rejection tests compare all inventory, fellow, and loan state before and after the attempt.
+Stage 5 verification: **29 tests passed**, covering the foundation plus valid additions, normalized IDs, duplicate rejection, blank/non-text fields, invalid totals, inventory display, empty inventory, interrupted additions, and the full add/list menu flow. Borrowing checks also cover the first two required borrowing steps, unknown IDs, invalid quantities, insufficient stock, exact-stock borrowing, repeated loans, newly added resources, interrupted entry, and CLI receipts. Return tests cover partial/full returns, oldest-loan allocation across repeated borrowings, loan history retention, other fellows/resources remaining unchanged, duplicate returns, excessive returns, invalid inputs, interrupted entry, and CLI receipts. Rejection tests compare all inventory, fellow, and loan state before and after the attempt.
 
 Try adding resource `r004`, name `Projector`, category `Electronics`, and total `4` through option `4`. Its stored ID becomes `R004`, with total and available units both set to 4. Option `3` lists all five inventory fields. Adding `R004` again is rejected. These are instructions to try locally, not the required seven-step demonstration output.
 
 To borrow, choose `5`, enter a fellow ID such as `F001`, a resource ID such as `R001`, and a positive whole-number quantity. IDs ignore case and outer spaces. Invalid quantity input prompts again; an unknown ID or insufficient stock rejects the request and returns to the menu. Successful receipts show the loan ID, fellow, resource, quantity, and remaining stock. Every successful request creates a separate record (`L001`, `L002`, and so on); rejected requests create none.
 
-Returns, searching, full reports, and `--demo` remain planned. The session overview only counts resource types, fellows, and borrowing records; it is not the final stock report.
+To return, choose `6`, enter the fellow ID, resource ID, and quantity to return. The program checks the total still owed by that fellow for that resource before changing anything. A return can span multiple borrowing records, settling the oldest first. The receipt shows units returned, units still owed, and stock now available. Returning too many units, returning an item the fellow never borrowed, or returning an already settled loan is rejected without changing state.
+
+Searching, full reports, and `--demo` remain planned. The session overview only counts resource types, fellows, and borrowing records; it is not the final stock report.
 
 ## Files and planned commands
 
@@ -137,7 +139,7 @@ Returns, searching, full reports, and `--demo` remain planned. The session overv
 | --- | --- |
 | `README.md` | Project overview, rules, build stages, and usage. |
 | `campuskit.py` | Application functions, menu, and demonstration mode in one submission-friendly file. |
-| `test_campuskit.py` | Foundation, inventory, and borrowing tests using the standard-library `unittest` module. |
+| `test_campuskit.py` | Foundation, inventory, borrowing, and return tests using the standard-library `unittest` module. |
 | `docs/demo-output.txt` | Actual captured demonstration output, created after execution. |
 | `docs/test-output.txt` | Actual captured test output, created after execution. |
 | `docs/design.md` | Final explanation of implemented functions, data representation, and limitations. |
@@ -164,7 +166,7 @@ We will complete one stage at a time. For each stage: explain the change, implem
 | 2. Application foundation — complete | Starting data, entry point, menu loop, input helpers, and `.gitignore`. | Menu repeats, invalid selections are handled, and exit works. | `feat: add CLI foundation and starting data` |
 | 3. Resource inventory — complete | Add/list resources and validate resource fields. | Valid additions work; duplicate IDs and invalid totals leave inventory unchanged. | `feat: implement resource inventory management` |
 | 4. Borrowing — complete | Fellow/resource validation, stock checks, records, and receipts. | Valid loans reduce stock; invalid IDs, quantities, and insufficient stock leave all state unchanged. | `feat: implement validated resource borrowing` |
-| 5. Returns | Outstanding loan calculation and partial/full returns. | Repeated borrowings and returns remain correct; excessive or invalid returns change nothing. | `feat: implement validated resource returns` |
+| 5. Returns — complete | Outstanding loan calculation and partial/full returns. | Repeated borrowings and returns remain correct; excessive or invalid returns change nothing. | `feat: implement validated resource returns` |
 | 6. Search and category filter | Case-insensitive name search and category filtering. | `LAPtop` finds Laptop; category matching and no-match messages work. | `feat: add inventory search and category filters` |
 | 7. Reports and loan visibility | Required reports, all tied leaders, fellow loan view, stock labels, and consistency checks. | Totals agree with loans; ties, zero stock, and no outstanding loans are handled correctly. | `feat: add stock reports and fellow loan views` |
 | 8. Demonstration and test evidence | Fresh-state demo, full regression tests, and captured output. | Steps 1–7 pass in order; include an additional invalid-input test and actual output. | `test: verify requirements and capture demonstration evidence` |
