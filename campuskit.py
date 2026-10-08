@@ -1,4 +1,4 @@
-"""CampusKit: a local campus equipment manager, built one stage at a time."""
+"""CampusKit: a local, standard-library campus equipment lending desk."""
 
 import argparse
 import json
@@ -519,13 +519,6 @@ def main(data_path=None):
         return 1
     print("Welcome to CampusKit")
     print("Know what is available, who has it, and what comes back.")
-    print("Inventory: add and list resources from the menu.")
-    print("Borrow resources using option 5; return them using option 6.")
-    if data_path is None:
-        print("Session data is in memory only; nothing is saved on exit.")
-    else:
-        print(f"Save file: {data_path}")
-        print("Successful changes are saved automatically.")
 
     try:
         while True:
