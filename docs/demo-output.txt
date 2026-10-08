@@ -29,7 +29,7 @@ Available units: 14
 Units currently borrowed: 4
 Low stock (fewer than 3 available):
 Keyboard (R002): 2 available
-Most units currently borrowed (all tied leaders):
+Most borrowed resources (including ties):
 Keyboard (R002): 3 borrowed
 
 Additional invalid-input test: F001 requests 'two' laptops

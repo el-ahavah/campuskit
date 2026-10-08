@@ -161,7 +161,7 @@ def show_report(report):
         print("None.")
     for resource in report["low_stock"]:
         print(f"{resource['name']} ({resource['id']}): {resource['available']} available")
-    print("Most units currently borrowed (all tied leaders):")
+    print("Most borrowed resources (including ties):")
     if not report["most_borrowed"]:
         print("No units currently borrowed.")
     for resource in report["most_borrowed"]:
