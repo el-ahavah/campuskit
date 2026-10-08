@@ -1,4 +1,4 @@
-"""Foundation and inventory checks; run with python -m unittest -v."""
+"""Foundation, inventory, and borrowing checks; run with python -m unittest -v."""
 
 import io
 import subprocess
@@ -154,6 +154,100 @@ class InventoryTests(unittest.TestCase):
         self.assertEqual(result.stdout.count("positive whole number"), 4)
         self.assertIn(["R004", "Projector", "Electronics", "4", "4"],
                       [line.split() for line in result.stdout.splitlines()])
+        self.assertTrue(result.stdout.rstrip().endswith("Goodbye from CampusKit."))
+
+
+class BorrowingTests(unittest.TestCase):
+    def setUp(self):
+        self.resources, self.fellows, self.loans = campuskit.create_initial_state()
+
+    def borrow(self, fellow_id, resource_id, quantity):
+        return campuskit.borrow_resource(
+            self.resources, self.fellows, self.loans, fellow_id, resource_id, quantity
+        )
+
+    def test_required_first_two_borrowings(self):
+        first = self.borrow("F001", "R001", 2)
+        second = self.borrow("F002", "R002", 3)
+        self.assertEqual([r["available"] for r in self.resources], [8, 2, 3])
+        self.assertEqual([r["total"] for r in self.resources], [10, 5, 3])
+        self.assertEqual(self.loans, [
+            {"loan_id": "L001", "fellow_id": "F001", "resource_id": "R001",
+             "quantity_borrowed": 2, "quantity_returned": 0},
+            {"loan_id": "L002", "fellow_id": "F002", "resource_id": "R002",
+             "quantity_borrowed": 3, "quantity_returned": 0},
+        ])
+        self.assertEqual(first, self.loans[0])
+        self.assertEqual(second, self.loans[1])
+
+    def test_rejected_requests_preserve_all_state_and_next_loan_id(self):
+        self.borrow("F001", "R001", 2)
+        before = deepcopy((self.resources, self.fellows, self.loans))
+        cases = [("F999", "R001", 1), ("F001", "R999", 1), ("F003", "R003", 4)]
+        cases += [("F001", "R001", q) for q in (0, -1, 1.5, 2.0, "two", "2", None, True, False)]
+        cases += [(bad, "R001", 1) for bad in ("", " ", None, 123)]
+        cases += [("F001", bad, 1) for bad in ("", " ", None, 123)]
+        for args in cases:
+            with self.subTest(args=args):
+                with self.assertRaises(ValueError):
+                    self.borrow(*args)
+                self.assertEqual((self.resources, self.fellows, self.loans), before)
+        self.assertEqual(self.borrow("F002", "R002", 1)["loan_id"], "L002")
+
+    def test_exact_stock_then_zero_stock_rejection(self):
+        self.borrow("F003", "R003", 3)
+        self.assertEqual(self.resources[2]["available"], 0)
+        before = deepcopy((self.resources, self.fellows, self.loans))
+        with self.assertRaisesRegex(ValueError, "has 0 available"):
+            self.borrow("F001", "R003", 1)
+        self.assertEqual((self.resources, self.fellows, self.loans), before)
+
+    def test_repeated_loans_keep_separate_records_and_normalize_ids(self):
+        self.borrow(" f001 ", " r001 ", 2)
+        self.borrow("F001", "R001", 3)
+        self.borrow("F002", "R001", 1)
+        self.assertEqual(self.resources[0]["available"], 4)
+        self.assertEqual([r["loan_id"] for r in self.loans], ["L001", "L002", "L003"])
+        self.assertEqual([r["fellow_id"] for r in self.loans], ["F001", "F001", "F002"])
+        self.assertEqual(sum(r["quantity_borrowed"] for r in self.loans), 6)
+        self.assertTrue(all(r["resource_id"] == "R001" for r in self.loans))
+
+    def test_newly_added_resource_can_be_borrowed(self):
+        campuskit.add_resource(self.resources, "R004", "Projector", "Electronics", 2)
+        self.borrow("F002", "R004", 1)
+        self.assertEqual(self.resources[-1]["available"], 1)
+        self.assertEqual(self.loans[-1]["resource_id"], "R004")
+
+    def test_interrupted_borrow_does_not_change_state(self):
+        before = deepcopy((self.resources, self.fellows, self.loans))
+        for error in (EOFError, KeyboardInterrupt):
+            for prefix in ([], ["F001"], ["F001", "R001"]):
+                with self.subTest(error=error, prefix=prefix):
+                    with patch("builtins.input", side_effect=prefix + [error]), redirect_stdout(io.StringIO()):
+                        with self.assertRaises(error):
+                            campuskit.prompt_borrow_resource(self.resources, self.fellows, self.loans)
+                    self.assertEqual((self.resources, self.fellows, self.loans), before)
+
+    def test_cli_borrow_receipts_rejections_and_stock(self):
+        result = subprocess.run(
+            [sys.executable, str(Path(campuskit.__file__))],
+            input="5\n f001 \n r001 \ntwo\n0\n-1\n1.5\n2\n5\nF002\nR002\n3\n5\nF003\nR003\n4\n5\nF999\nR001\n1\n5\nF001\nR999\n1\n3\n1\n0\n",
+            text=True, capture_output=True, timeout=5,
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stderr, "")
+        self.assertEqual(result.stdout.count("Borrowing confirmed"), 2)
+        self.assertEqual(result.stdout.count("Borrowing rejected"), 3)
+        self.assertEqual(result.stdout.count("positive whole number"), 4)
+        for text in ("Fellow: F001 | Ada", "Resource: R001 | Laptop",
+                     "Quantity borrowed: 2", "Available now: 8", "Available now: 2",
+                     "Unknown fellow ID F999", "Unknown resource ID R999", "Borrowing records: 2"):
+            self.assertIn(text, result.stdout)
+        rows = [line.split() for line in result.stdout.splitlines()]
+        for row in (["R001", "Laptop", "Electronics", "10", "8"],
+                    ["R002", "Keyboard", "Accessories", "5", "2"],
+                    ["R003", "Headset", "Accessories", "3", "3"]):
+            self.assertIn(row, rows)
         self.assertTrue(result.stdout.rstrip().endswith("Goodbye from CampusKit."))
 
 

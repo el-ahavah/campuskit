@@ -109,6 +109,57 @@ def prompt_add_resource(resources):
           f"{resource['available']} of {resource['total']} units available.")
 
 
+def borrow_resource(resources, fellows, borrow_records, fellow_id, resource_id, quantity):
+    """Validate a loan completely before changing stock or recording it."""
+    fellow_id = validate_text(fellow_id, "Fellow ID").upper()
+    resource_id = validate_text(resource_id, "Resource ID").upper()
+    if fellow_id not in fellows:
+        raise ValueError(f"Unknown fellow ID {fellow_id}. Check the registered fellows.")
+    resource = find_resource(resources, resource_id)
+    if resource is None:
+        raise ValueError(f"Unknown resource ID {resource_id}. Check the resource inventory.")
+    if type(quantity) is not int or quantity <= 0:
+        raise ValueError("Quantity must be a positive whole number.")
+    if quantity > resource["available"]:
+        raise ValueError(
+            f"Insufficient stock: {resource['name']} has {resource['available']} "
+            f"available; requested {quantity}."
+        )
+
+    # Records are retained, including fully returned loans in later stages.
+    record = {
+        "loan_id": f"L{len(borrow_records) + 1:03d}",
+        "fellow_id": fellow_id,
+        "resource_id": resource_id,
+        "quantity_borrowed": quantity,
+        "quantity_returned": 0,
+    }
+    borrow_records.append(record)
+    resource["available"] -= quantity
+    return record
+
+
+def prompt_borrow_resource(resources, fellows, borrow_records):
+    """Collect a loan request and show a receipt or a helpful rejection."""
+    print("\nBorrow a resource")
+    fellow_id = read_non_empty("Fellow ID: ")
+    resource_id = read_non_empty("Resource ID: ")
+    quantity = read_positive_integer("Quantity: ")
+    try:
+        record = borrow_resource(
+            resources, fellows, borrow_records, fellow_id, resource_id, quantity
+        )
+    except ValueError as error:
+        print(f"Borrowing rejected: {error} No stock or loan records changed.")
+        return
+    resource = find_resource(resources, record["resource_id"])
+    print(f"Borrowing confirmed | {record['loan_id']}")
+    print(f"Fellow: {record['fellow_id']} | {fellows[record['fellow_id']]}")
+    print(f"Resource: {resource['id']} | {resource['name']}")
+    print(f"Quantity borrowed: {record['quantity_borrowed']}")
+    print(f"Available now: {resource['available']}")
+
+
 def show_menu():
     """Display only the actions currently implemented."""
     print("\nCampusKit | Main menu")
@@ -116,16 +167,17 @@ def show_menu():
     print("2. View registered fellows")
     print("3. List resources")
     print("4. Add a resource")
+    print("5. Borrow a resource")
     print("0. Exit")
 
 
 def read_menu_choice():
     """Keep asking until the user chooses an available menu action."""
     while True:
-        choice = read_non_empty("Choose an option (0-4): ")
-        if choice in ("0", "1", "2", "3", "4"):
+        choice = read_non_empty("Choose an option (0-5): ")
+        if choice in ("0", "1", "2", "3", "4", "5"):
             return choice
-        print("Invalid option. Please choose 0, 1, 2, 3, or 4.")
+        print("Invalid option. Please choose 0, 1, 2, 3, 4, or 5.")
 
 
 def show_overview(resources, fellows, borrow_records):
@@ -149,7 +201,7 @@ def main():
     print("Welcome to CampusKit")
     print("Know what is available, who has it, and what comes back.")
     print("Inventory: add and list resources from the menu.")
-    print("Borrowing and returns arrive in later stages.")
+    print("Borrow resources using option 5. Returns arrive in Stage 5.")
     print("Session data is in memory only; nothing is saved on exit.")
 
     try:
@@ -166,6 +218,8 @@ def main():
                 list_resources(resources)
             elif choice == "4":
                 prompt_add_resource(resources)
+            elif choice == "5":
+                prompt_borrow_resource(resources, fellows, borrow_records)
     except (EOFError, KeyboardInterrupt):
         print("\nInput ended. Closing CampusKit.")
     print("Goodbye from CampusKit.")
